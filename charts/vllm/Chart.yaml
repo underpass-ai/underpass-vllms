@@ -1,0 +1,5 @@
+apiVersion: v2
+name: vllm
+description: vLLM inference server — multi-instance Helm chart for Underpass AI
+version: 0.1.0
+appVersion: "0.18.0"

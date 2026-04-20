@@ -1,0 +1,83 @@
+{{- $defaults := .Values.defaults -}}
+{{- $cache := .Values.cache -}}
+{{- $cacheName := include "vllm.cacheName" . -}}
+{{- if $cache.existingClaim }}
+  {{- $cacheName = $cache.existingClaim -}}
+{{- end }}
+{{- range $name, $inst := .Values.instances }}
+{{- if $inst.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-{{ $name }}
+  labels:
+    app: vllm-{{ $name }}
+    {{- include "vllm.labels" $ | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-{{ $name }}
+  template:
+    metadata:
+      labels:
+        app: vllm-{{ $name }}
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: vllm
+          image: "{{ $defaults.image.repository }}:{{ $defaults.image.tag }}"
+          imagePullPolicy: {{ $defaults.image.pullPolicy }}
+          args:
+            - --model={{ $inst.model }}
+            - --tensor-parallel-size={{ $inst.tensorParallelSize | default 1 }}
+            - --max-model-len={{ $inst.maxModelLen }}
+            - --gpu-memory-utilization={{ $inst.gpuMemoryUtilization | default 0.90 }}
+            {{- if $inst.enforceEager }}
+            - --enforce-eager
+            {{- end }}
+            - --trust-remote-code
+            - --host=0.0.0.0
+            {{- range $inst.extraArgs }}
+            - {{ . }}
+            {{- end }}
+          env:
+            {{- range $k, $v := $defaults.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+            {{- if $defaults.huggingface.tokenSecret }}
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $defaults.huggingface.tokenSecret }}
+                  key: {{ $defaults.huggingface.tokenKey | default "HF_TOKEN" }}
+            {{- end }}
+          ports:
+            - containerPort: {{ $defaults.service.port }}
+              protocol: TCP
+          resources:
+            {{- $res := $inst.resources | default $defaults.resources }}
+            {{- toYaml $res | nindent 12 }}
+          volumeMounts:
+            - name: hf-cache
+              mountPath: /tmp/hf-cache
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        {{- if $cache.enabled }}
+        - name: hf-cache
+          persistentVolumeClaim:
+            claimName: {{ $cacheName }}
+        {{- else }}
+        - name: hf-cache
+          emptyDir:
+            sizeLimit: 20Gi
+        {{- end }}
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: {{ $defaults.shmSizeLimit }}
+{{- end }}
+{{- end }}

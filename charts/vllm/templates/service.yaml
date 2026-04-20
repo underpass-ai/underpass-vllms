@@ -1,0 +1,22 @@
+{{- $defaults := .Values.defaults -}}
+{{- range $name, $inst := .Values.instances }}
+{{- if $inst.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-{{ $name }}
+  labels:
+    app: vllm-{{ $name }}
+    {{- include "vllm.labels" $ | nindent 4 }}
+spec:
+  type: {{ $defaults.service.type }}
+  ports:
+    - name: http
+      port: {{ $defaults.service.port }}
+      targetPort: {{ $defaults.service.port }}
+      protocol: TCP
+  selector:
+    app: vllm-{{ $name }}
+{{- end }}
+{{- end }}

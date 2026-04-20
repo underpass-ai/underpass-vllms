@@ -1,0 +1,136 @@
+# ---------------------------------------------------------------------------
+# vLLM multi-instance chart — Underpass AI
+# ---------------------------------------------------------------------------
+#
+# Each key under `instances` produces one Deployment + Service + Ingress.
+# The `defaults` block applies unless overridden per instance.
+#
+# Cluster: 4x RTX 3090 24GB, CUDA 13.1, driver 590.48
+
+defaults:
+  image:
+    repository: docker.io/vllm/vllm-openai
+    tag: v0.18.0-cu130
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 2
+      memory: 16Gi
+      nvidia.com/gpu: 1
+    limits:
+      cpu: 4
+      memory: 24Gi
+      nvidia.com/gpu: 1
+  env:
+    HF_HOME: /tmp/hf-cache
+    LD_LIBRARY_PATH: /usr/lib
+    VLLM_ATTENTION_BACKEND: FLASHINFER
+  shmSizeLimit: 2Gi
+  huggingface:
+    tokenSecret: huggingface-token
+    tokenKey: HF_TOKEN
+  service:
+    port: 8000
+    type: ClusterIP
+  ingress:
+    enabled: false
+    className: nginx
+    clusterIssuer: letsencrypt-prod-r53
+    mtls:
+      enabled: true
+      clientCaSecret: underpass-demo-client-tls
+  dns:
+    route53:
+      enabled: false
+      target: 192.168.1.241
+      ttl: 300
+      region: eu-south-2
+      credentialsSecret: prod-route53-credentials-secret
+      accessKeyIdKey: access-key-id
+      secretAccessKeyKey: secret-access-key
+      hostedZoneIdKey: hosted-zone-id
+      image:
+        repository: public.ecr.aws/aws-cli/aws-cli
+        tag: "2.17.47"
+        pullPolicy: IfNotPresent
+
+# ---------------------------------------------------------------------------
+# Observability
+# ---------------------------------------------------------------------------
+
+serviceMonitor:
+  # -- Create Prometheus ServiceMonitors for each vLLM instance
+  enabled: false
+  # -- Additional labels (e.g. release: kube-prometheus-stack)
+  labels: {}
+  # -- Scrape interval
+  interval: 30s
+  # -- Metrics path
+  path: /metrics
+
+# Shared HuggingFace model cache persisted across pod restarts.
+cache:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  size: 50Gi
+  accessMode: ReadWriteOnce
+
+instances:
+  qwen35-9b:
+    # Disabled by default because qwen35-27b already consumes the full 4-GPU cluster.
+    enabled: false
+    model: Qwen/Qwen3.5-9B
+    maxModelLen: 16384
+    tensorParallelSize: 1
+    gpuMemoryUtilization: 0.95
+    enforceEager: true
+    extraArgs:
+      - --reasoning-parser=qwen3
+      - --enable-auto-tool-choice
+      - --tool-call-parser=qwen3_coder
+      - --language-model-only
+    ingress:
+      enabled: true
+      host: qwen35-9b.llm.underpassai.com
+      tlsSecret: vllm-qwen35-9b-tls
+
+  qwen3-8b:
+    enabled: false
+    model: Qwen/Qwen3-8B
+    maxModelLen: 8192
+    tensorParallelSize: 1
+    gpuMemoryUtilization: 0.85
+    enforceEager: false
+    extraArgs:
+      - --reasoning-parser=qwen3
+    ingress:
+      enabled: true
+      host: qwen3-8b.llm.underpassai.com
+      tlsSecret: vllm-qwen3-8b-tls
+
+  qwen35-27b:
+    enabled: true
+    model: Qwen/Qwen3.5-27B
+    maxModelLen: 65536
+    tensorParallelSize: 4
+    gpuMemoryUtilization: 0.92
+    enforceEager: true
+    resources:
+      requests:
+        cpu: 8
+        memory: 64Gi
+        nvidia.com/gpu: 4
+      limits:
+        cpu: 16
+        memory: 96Gi
+        nvidia.com/gpu: 4
+    extraArgs:
+      - --reasoning-parser=qwen3
+      - --enable-auto-tool-choice
+      - --tool-call-parser=qwen3_coder
+      - --language-model-only
+    ingress:
+      enabled: true
+      host: qwen35-27b.llm.underpassai.com
+      tlsSecret: vllm-qwen35-27b-tls
