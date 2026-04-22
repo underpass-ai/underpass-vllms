@@ -17,7 +17,7 @@ Modelo oficial:
 - modo del orquestador: `single_pass`
 - backend HTTP: `vllm_chat_completions`
 - release usada en laboratorio: `underpass-llm-gemma-4-31b`
-- imagen actual del orquestador: `registry.underpassai.com/underpass-vllms:20260422-openai-responses-compat`
+- imagen actual del orquestador: `registry.underpassai.com/underpass-vllms:20260422-openai-streaming`
 
 ## Decisiones de configuracion
 
@@ -52,6 +52,22 @@ Shape de respuesta validada:
 - `metadata.pass1` y `metadata.pass2` ausentes
 
 Eso confirma que el refactor del contrato `single_pass` ya esta activo en el despliegue real.
+
+Streaming validado en vivo:
+
+- `POST /v1/chat/completions` con `stream=true`: correcto
+- `POST /v1/responses` con `stream=true`: correcto
+- `responses` emite:
+  - `response.created`
+  - `response.output_text.delta`
+  - `response.output_text.done`
+  - `response.completed`
+- `chat.completions` cierra con `data: [DONE]`
+
+Observacion importante:
+
+- los deltas reales salen en trozos muy pequeños
+- eso es comportamiento normal del backend, no un bug del orquestador
 
 ## Bateria SWE
 
@@ -102,6 +118,8 @@ Metricas comparativas clave:
 ## Lectura operativa
 
 `Gemma 4 31B-it` queda operativo y usable, pero con la evidencia de este repo no justifica sustituir a `Gemma 4 26B-A4B-it` como `default rapido`.
+
+Como release de referencia para probar streaming, si.
 
 Decision sugerida:
 

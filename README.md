@@ -23,17 +23,18 @@ Los perfiles hoy soportados en el orquestador son:
 ## Orden de lectura
 
 1. [docs/deployment.md](docs/deployment.md)
-2. [docs/values-reference.md](docs/values-reference.md)
-3. [docs/api.md](docs/api.md)
-4. [docs/model-lab-notes-2026-04-21.md](docs/model-lab-notes-2026-04-21.md)
-5. [docs/gemma-4-family.md](docs/gemma-4-family.md)
-6. [docs/gemma-4-26b-a4b.md](docs/gemma-4-26b-a4b.md)
-7. [docs/gemma-4-31b.md](docs/gemma-4-31b.md)
-8. [docs/qwopus3.5-27b.md](docs/qwopus3.5-27b.md)
-9. [docs/gpt-oss-120b.md](docs/gpt-oss-120b.md)
-10. [docs/gpt-oss-20b.md](docs/gpt-oss-20b.md)
-11. [docs/qwen-thinking-integration-plan.md](docs/qwen-thinking-integration-plan.md)
-12. [docs/qwen-thinking-execution-checklist.md](docs/qwen-thinking-execution-checklist.md)
+2. [docs/runbooks/README.md](docs/runbooks/README.md)
+3. [docs/values-reference.md](docs/values-reference.md)
+4. [docs/api.md](docs/api.md)
+5. [docs/model-lab-notes-2026-04-21.md](docs/model-lab-notes-2026-04-21.md)
+6. [docs/gemma-4-family.md](docs/gemma-4-family.md)
+7. [docs/gemma-4-26b-a4b.md](docs/gemma-4-26b-a4b.md)
+8. [docs/gemma-4-31b.md](docs/gemma-4-31b.md)
+9. [docs/qwopus3.5-27b.md](docs/qwopus3.5-27b.md)
+10. [docs/gpt-oss-120b.md](docs/gpt-oss-120b.md)
+11. [docs/gpt-oss-20b.md](docs/gpt-oss-20b.md)
+12. [docs/qwen-thinking-integration-plan.md](docs/qwen-thinking-integration-plan.md)
+13. [docs/qwen-thinking-execution-checklist.md](docs/qwen-thinking-execution-checklist.md)
 
 ## Convencion de despliegue
 
@@ -84,6 +85,13 @@ La diferencia entre `reasoning` y `structured` no la adivina el chart. Debes dec
   - `stream=true` en `/v1/chat/completions` y `/v1/responses` solo cuando el backend activo es `single_pass`
 - APIs upstream de inferencia: OpenAI-compatible (`/v1/chat/completions`)
 
+## Runbooks utiles
+
+- despliegue y validacion `single_pass`: [docs/runbooks/single-pass-release.md](docs/runbooks/single-pass-release.md)
+- smoke test para consumidores OpenAI: [docs/runbooks/openai-consumer-smoke.md](docs/runbooks/openai-consumer-smoke.md)
+- debug de streaming: [docs/runbooks/streaming-debug.md](docs/runbooks/streaming-debug.md)
+- tests y cobertura: [docs/runbooks/test-and-coverage.md](docs/runbooks/test-and-coverage.md)
+
 ## Estado recomendado del laboratorio
 
 - `default rapido`: [docs/gemma-4-26b-a4b.md](docs/gemma-4-26b-a4b.md)
@@ -97,3 +105,9 @@ La diferencia entre `reasoning` y `structured` no la adivina el chart. Debes dec
 make helm-lint-values VALUES=<values-file>
 make helm-template-reasoning NAMESPACE=<namespace> VALUES=<values-file>
 ```
+
+## Calidad minima del repo
+
+- `go test ./...` debe pasar
+- cobertura unitaria total objetivo: `>= 80%`
+- runbook asociado: [docs/runbooks/test-and-coverage.md](docs/runbooks/test-and-coverage.md)

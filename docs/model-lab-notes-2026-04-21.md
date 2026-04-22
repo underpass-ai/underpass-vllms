@@ -172,5 +172,8 @@ Si hay que escoger ya:
 
 - el contrato HTTP ya distingue bien `two_pass` y `single_pass`
 - el perfil `gemma4` ya usa metadata `single_pass` limpia
+- la fachada OpenAI ya soporta streaming real en `single_pass`
+- `chat.completions` emite `chat.completion.chunk`
+- `responses` emite `response.created`, `response.output_text.delta`, `response.output_text.done` y `response.completed`
 - `tmp/` no se versiona
 - la release activa de laboratorio documentada es `Gemma 4 31B`

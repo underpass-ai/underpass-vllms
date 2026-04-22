@@ -81,6 +81,11 @@ Ejemplo real:
 
 ## Workflow exacto
 
+Si quieres algo corto y operativo antes de entrar en detalle, usa:
+
+- [runbooks/single-pass-release.md](runbooks/single-pass-release.md)
+- [runbooks/streaming-debug.md](runbooks/streaming-debug.md)
+
 ### 1. Elegir el patron de despliegue
 
 - usa `two_pass` si el modelo necesita `reasoning` separado
@@ -257,6 +262,15 @@ Opciones:
 Si quieres compartir cache entre releases distintas, usa `cache.existingClaim` y asegúrate de que tu storage soporta el patrón de montaje que necesitas.
 
 ## Observabilidad
+
+Para seguir logs en tiempo real del orquestador y comprobar streaming, no improvises:
+
+- usa [runbooks/streaming-debug.md](runbooks/streaming-debug.md)
+
+Regla operativa importante:
+
+- valida streaming primero desde dentro del cluster
+- si dentro del cluster ves deltas y fuera no, el problema suele estar en el cliente, proxy o ingress
 
 Si `serviceMonitor.enabled=true`, el chart crea `ServiceMonitor` para `reasoning` y `structured`.
 

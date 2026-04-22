@@ -25,6 +25,41 @@ No intenta replicar toda la plataforma OpenAI. La parte util aqui es mapear clie
 
 La misma filosofia aplica a `POST /v1/responses`: se soporta el subconjunto util para structured extraction, no toda la superficie completa de la Responses API.
 
+Si necesitas una receta operativa en vez de leer este contrato entero:
+
+- despliegue y smoke test: [runbooks/single-pass-release.md](runbooks/single-pass-release.md)
+- smoke test desde un cliente OpenAI: [runbooks/openai-consumer-smoke.md](runbooks/openai-consumer-smoke.md)
+- debugging de streaming: [runbooks/streaming-debug.md](runbooks/streaming-debug.md)
+- tests y cobertura: [runbooks/test-and-coverage.md](runbooks/test-and-coverage.md)
+
+## Compatibilidad real con OpenAI
+
+La API publica no es una replica completa de OpenAI. Es una fachada compatible con el subconjunto que necesitamos para structured extraction.
+
+Soportado:
+
+- `GET /v1/models`
+- `GET /v1/models/{id}`
+- `POST /v1/chat/completions`
+- `POST /v1/responses`
+- `response_format.type = "json_schema"` y `response_format.type = "json_object"` en `chat.completions`
+- `text.format.type = "json_schema"` y `text.format.type = "json_object"` en `responses`
+- `stream=true` en ambos endpoints cuando el backend activo es `single_pass`
+
+No soportado:
+
+- tools / function calling
+- audio
+- `n > 1`
+- `previous_response_id`
+- `store`
+- `background`
+- `text.format.type = "text"`
+- estado conversacional persistente
+- streaming publico cuando el backend activo es `two_pass`
+
+Si necesitas una validacion rapida como consumidor, usa [runbooks/openai-consumer-smoke.md](runbooks/openai-consumer-smoke.md).
+
 ## Request Body
 
 ### `POST /v1/two-pass/structured`
@@ -382,6 +417,18 @@ data: {"id":"chatcmpl-75e81d175a16f2a1","object":"chat.completion.chunk","create
 data: [DONE]
 ```
 
+### Observaciones reales del streaming
+
+- los deltas pueden ser muy pequeños
+- no esperes frases completas
+- con `Gemma 4 31B` se observaron trozos del estilo:
+  - `{\"`
+  - `value`
+  - `\":`
+  - `"hello"`
+
+Eso es normal y no implica buffering incorrecto.
+
 ## OpenAI-Compatible Responses API
 
 ### Request soportada
@@ -529,3 +576,10 @@ data: {"type":"response.output_text.done","sequence_number":2,"response_id":"res
 
 data: {"type":"response.completed","sequence_number":3,"response":{"id":"resp_053abd05e4c7decb","object":"response","created_at":1760000000,"completed_at":1760000000,"status":"completed","error":null,"incomplete_details":null,"instructions":"Extract strictly and return valid JSON.","max_output_tokens":null,"model":"google/gemma-4-31B-it","output":[{"id":"msg_053abd05e4c7decb","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"{\"invoice_number\":\"INV-2026-0017\",\"currency\":\"EUR\"}","annotations":[]}]}],"output_text":"{\"invoice_number\":\"INV-2026-0017\",\"currency\":\"EUR\"}","reasoning":{"effort":null,"summary":null},"text":{"format":{"type":"json_schema","name":"invoice_v1","schema":{"type":"object"}}},"usage":{"input_tokens":170,"output_tokens":7,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":177},"metadata":{}}}
 ```
+
+### Observaciones reales del streaming
+
+- `response.created` sale al principio
+- `response.output_text.delta` puede llegar en trozos muy pequeños
+- `response.completed.usage` puede salir a cero si el upstream no envia usage en los chunks
+- eso no rompe el stream; solo significa que el backend no adjunto usage final durante SSE
