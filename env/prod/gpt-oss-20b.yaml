@@ -73,7 +73,7 @@ orchestrator:
     - ghcr-pull-secret
   image:
     repository: ghcr.io/tgarciai/underpass-vllms
-    tag: 20260422-openai-responses-compat
+    tag: 20260422-openai-error-envelope
     pullPolicy: IfNotPresent
   addr: :8080
   modelType: gpt_oss
