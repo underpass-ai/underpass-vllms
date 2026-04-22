@@ -267,16 +267,17 @@ curl -s http://localhost:8080/v1/two-pass/structured \
 - `max_tokens`
 - `reasoning_effort`
 - `n` solo con valor `1`
-- `stream=false`
+- `stream`
 
 ### Restricciones intencionales
 
-- no hay streaming
 - no hay tools
 - no hay tool calls
 - no hay audio
 - el caso de uso principal es `response_format.type=json_schema`
 - `json_object` tambien se acepta con un schema permisivo
+- `stream=true` solo se soporta cuando el backend activo es `single_pass`
+- si el orquestador esta usando `two_pass`, `stream=true` devuelve `400 invalid_request_error`
 
 ### Mapeo interno
 
@@ -284,6 +285,7 @@ curl -s http://localhost:8080/v1/two-pass/structured \
 - `response_format` aporta el `schema`
 - `model` se propaga como override a `pass1`, `pass2` y `single_pass`
 - la respuesta final se devuelve como `choices[0].message.content`, con el JSON serializado como string
+- con `stream=true`, la respuesta se emite como SSE `chat.completion.chunk` y termina con `data: [DONE]`
 
 ### Example Request
 
@@ -364,6 +366,22 @@ curl -s http://localhost:8080/v1/chat/completions \
 }
 ```
 
+### Example Streaming Response
+
+`POST /v1/chat/completions` con `stream=true` devuelve SSE de tipo OpenAI:
+
+```text
+data: {"id":"chatcmpl-75e81d175a16f2a1","object":"chat.completion.chunk","created":1760000000,"model":"google/gemma-4-31B-it","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-75e81d175a16f2a1","object":"chat.completion.chunk","created":1760000000,"model":"google/gemma-4-31B-it","choices":[{"index":0,"delta":{"content":"{\"invoice_number\":"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-75e81d175a16f2a1","object":"chat.completion.chunk","created":1760000000,"model":"google/gemma-4-31B-it","choices":[{"index":0,"delta":{"content":"\"INV-2026-0017\",\"currency\":\"EUR\"}"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-75e81d175a16f2a1","object":"chat.completion.chunk","created":1760000000,"model":"google/gemma-4-31B-it","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+```
+
 ## OpenAI-Compatible Responses API
 
 ### Request soportada
@@ -378,17 +396,18 @@ curl -s http://localhost:8080/v1/chat/completions \
 - `top_p`
 - `max_output_tokens`
 - `reasoning.effort`
-- `stream=false`
+- `stream`
 
 ### Restricciones intencionales
 
-- no hay streaming
 - no hay tools
 - no hay conversation state
 - no hay `previous_response_id`
 - el caso de uso principal es `text.format.type=json_schema`
 - `json_object` tambien se acepta
 - `text.format.type=text` no se soporta en este orquestador
+- `stream=true` solo se soporta cuando el backend activo es `single_pass`
+- si el orquestador esta usando `two_pass`, `stream=true` devuelve `400 invalid_request_error`
 
 ### Mapeo interno
 
@@ -401,6 +420,11 @@ curl -s http://localhost:8080/v1/chat/completions \
   - `output_text`
   - `usage`
   - `text.format`
+- con `stream=true`, la respuesta se emite como SSE con eventos semanticos:
+  - `response.created`
+  - `response.output_text.delta`
+  - `response.output_text.done`
+  - `response.completed`
 
 ### Example Request
 
@@ -490,4 +514,18 @@ curl -s http://localhost:8080/v1/responses \
   },
   "metadata": {}
 }
+```
+
+### Example Streaming Response
+
+`POST /v1/responses` con `stream=true` devuelve SSE semantico sin `data: [DONE]`:
+
+```text
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_053abd05e4c7decb","object":"response","created_at":1760000000,"completed_at":0,"status":"in_progress","error":null,"incomplete_details":null,"instructions":"Extract strictly and return valid JSON.","max_output_tokens":null,"model":"google/gemma-4-31B-it","output":[],"output_text":"","reasoning":{"effort":null,"summary":null},"text":{"format":{"type":"json_schema","name":"invoice_v1","schema":{"type":"object"}}},"usage":{"input_tokens":0,"output_tokens":0,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":0},"metadata":{}}}
+
+data: {"type":"response.output_text.delta","sequence_number":1,"response_id":"resp_053abd05e4c7decb","item_id":"msg_053abd05e4c7decb","output_index":0,"content_index":0,"delta":"{\"invoice_number\":"}
+
+data: {"type":"response.output_text.done","sequence_number":2,"response_id":"resp_053abd05e4c7decb","item_id":"msg_053abd05e4c7decb","output_index":0,"content_index":0,"text":"{\"invoice_number\":\"INV-2026-0017\",\"currency\":\"EUR\"}"}
+
+data: {"type":"response.completed","sequence_number":3,"response":{"id":"resp_053abd05e4c7decb","object":"response","created_at":1760000000,"completed_at":1760000000,"status":"completed","error":null,"incomplete_details":null,"instructions":"Extract strictly and return valid JSON.","max_output_tokens":null,"model":"google/gemma-4-31B-it","output":[{"id":"msg_053abd05e4c7decb","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"{\"invoice_number\":\"INV-2026-0017\",\"currency\":\"EUR\"}","annotations":[]}]}],"output_text":"{\"invoice_number\":\"INV-2026-0017\",\"currency\":\"EUR\"}","reasoning":{"effort":null,"summary":null},"text":{"format":{"type":"json_schema","name":"invoice_v1","schema":{"type":"object"}}},"usage":{"input_tokens":170,"output_tokens":7,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":177},"metadata":{}}}
 ```

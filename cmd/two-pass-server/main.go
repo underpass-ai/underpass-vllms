@@ -52,6 +52,7 @@ func main() {
 	}
 
 	var executor domain.StructuredExecutionPort
+	var streamer httpapi.StreamUseCase
 	switch settings.ModelType {
 	case config.ModelTypeQwenReasoning:
 		reasonerProvider, err := openaiadapter.ParseProviderProfile(settings.Pass1.Provider)
@@ -62,12 +63,13 @@ func main() {
 		executor = twopassapp.NewTwoPassAdapter(appSettings, reasoner, formatter, validator, logger)
 	case config.ModelTypeGPTOss, config.ModelTypeGemma4:
 		executor = twopassapp.NewSinglePassAdapter(appSettings, formatter, logger)
+		streamer = twopassapp.NewStreamService(twopassapp.NewSinglePassStreamAdapter(appSettings, formatter, logger))
 	default:
 		logger.Fatalf("unsupported model type %q", settings.ModelType)
 	}
 
 	service := twopassapp.NewService(executor)
-	handler := httpapi.NewHandler(service, httpapi.WithPublicModel(resolvePublicModel(settings)))
+	handler := httpapi.NewHandler(service, httpapi.WithPublicModel(resolvePublicModel(settings)), httpapi.WithStreamer(streamer))
 
 	srv := &http.Server{
 		Addr:              settings.Addr,

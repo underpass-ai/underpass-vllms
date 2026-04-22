@@ -1,6 +1,7 @@
 package openaiadapter
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -46,6 +47,21 @@ type chatCompletionChoiceDTO struct {
 }
 
 type chatCompletionMessageDTO struct {
+	Content   any `json:"content"`
+	Reasoning any `json:"reasoning"`
+}
+
+type chatCompletionChunkDTO struct {
+	Choices []chatCompletionChunkChoiceDTO `json:"choices"`
+	Usage   *usageDTO                      `json:"usage,omitempty"`
+}
+
+type chatCompletionChunkChoiceDTO struct {
+	Delta        chatCompletionDeltaDTO `json:"delta"`
+	FinishReason *string                `json:"finish_reason"`
+}
+
+type chatCompletionDeltaDTO struct {
 	Content   any `json:"content"`
 	Reasoning any `json:"reasoning"`
 }
@@ -135,6 +151,115 @@ func (c *Client) Complete(ctx context.Context, request domain.CompletionRequest)
 			CompletionTokens: decoded.Usage.CompletionTokens,
 			TotalTokens:      decoded.Usage.TotalTokens,
 		},
+	}, nil
+}
+
+func (c *Client) Stream(
+	ctx context.Context,
+	request domain.CompletionRequest,
+	emit func(domain.CompletionDelta) error,
+) (domain.CompletionResponse, error) {
+	payload := c.buildPayload(request)
+	payload["stream"] = true
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return domain.CompletionResponse{}, fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return domain.CompletionResponse{}, fmt.Errorf("build request: %w", err)
+	}
+	httpRequest.Header.Set("Content-Type", "application/json")
+	httpRequest.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	httpResponse, err := c.httpClient.Do(httpRequest)
+	if err != nil {
+		return domain.CompletionResponse{}, fmt.Errorf("execute request: %w", err)
+	}
+	defer httpResponse.Body.Close()
+
+	if httpResponse.StatusCode < http.StatusOK || httpResponse.StatusCode >= http.StatusMultipleChoices {
+		responseBody, readErr := io.ReadAll(httpResponse.Body)
+		if readErr != nil {
+			return domain.CompletionResponse{}, fmt.Errorf("read error response: %w", readErr)
+		}
+		return domain.CompletionResponse{}, fmt.Errorf("unexpected status %d: %s", httpResponse.StatusCode, strings.TrimSpace(string(responseBody)))
+	}
+
+	var contentBuilder strings.Builder
+	var reasoningBuilder strings.Builder
+	usage := domain.Usage{}
+	finishReason := ""
+
+	scanner := bufio.NewScanner(httpResponse.Body)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, ":") {
+			continue
+		}
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+
+		payloadLine := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if payloadLine == "[DONE]" {
+			break
+		}
+
+		var chunk chatCompletionChunkDTO
+		if err := json.Unmarshal([]byte(payloadLine), &chunk); err != nil {
+			return domain.CompletionResponse{}, fmt.Errorf("decode stream chunk: %w", err)
+		}
+		if chunk.Usage != nil {
+			usage = domain.Usage{
+				PromptTokens:     chunk.Usage.PromptTokens,
+				CompletionTokens: chunk.Usage.CompletionTokens,
+				TotalTokens:      chunk.Usage.TotalTokens,
+			}
+		}
+		if len(chunk.Choices) == 0 {
+			continue
+		}
+
+		choice := chunk.Choices[0]
+		content, reasoning, err := extractChunkDeltaParts(choice.Delta)
+		if err != nil {
+			return domain.CompletionResponse{}, err
+		}
+		if content != "" {
+			contentBuilder.WriteString(content)
+			if emit != nil {
+				if err := emit(domain.CompletionDelta{Content: content}); err != nil {
+					return domain.CompletionResponse{}, err
+				}
+			}
+		}
+		if reasoning != "" {
+			reasoningBuilder.WriteString(reasoning)
+			if emit != nil {
+				if err := emit(domain.CompletionDelta{Reasoning: reasoning}); err != nil {
+					return domain.CompletionResponse{}, err
+				}
+			}
+		}
+		if choice.FinishReason != nil {
+			finishReason = *choice.FinishReason
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return domain.CompletionResponse{}, fmt.Errorf("read stream: %w", err)
+	}
+
+	return domain.CompletionResponse{
+		Content:      contentBuilder.String(),
+		Reasoning:    reasoningBuilder.String(),
+		FinishReason: finishReason,
+		Usage:        usage,
 	}, nil
 }
 
@@ -275,6 +400,18 @@ func extractMessageParts(message chatCompletionMessageDTO) (string, string, erro
 		return "", "", err
 	}
 	reasoning, err := extractContent(message.Reasoning)
+	if err != nil {
+		return "", "", err
+	}
+	return content, reasoning, nil
+}
+
+func extractChunkDeltaParts(delta chatCompletionDeltaDTO) (string, string, error) {
+	content, err := extractContent(delta.Content)
+	if err != nil {
+		return "", "", err
+	}
+	reasoning, err := extractContent(delta.Reasoning)
 	if err != nil {
 		return "", "", err
 	}

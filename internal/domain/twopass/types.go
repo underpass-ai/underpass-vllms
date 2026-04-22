@@ -62,6 +62,17 @@ type CompletionPort interface {
 	Complete(ctx context.Context, request CompletionRequest) (CompletionResponse, error)
 }
 
+type CompletionDelta struct {
+	Content      string
+	Reasoning    string
+	FinishReason string
+	Usage        *Usage
+}
+
+type CompletionStreamPort interface {
+	Stream(ctx context.Context, request CompletionRequest, emit func(CompletionDelta) error) (CompletionResponse, error)
+}
+
 type SchemaValidatorPort interface {
 	Validate(schema json.RawMessage, candidate json.RawMessage) error
 }
@@ -74,6 +85,10 @@ type StructuredExecutionResult struct {
 
 type StructuredExecutionPort interface {
 	Execute(ctx context.Context, requestID RequestID, request StructuredRequest) (StructuredExecutionResult, *Error)
+}
+
+type StructuredStreamExecutionPort interface {
+	Stream(ctx context.Context, requestID RequestID, request StructuredRequest, emit func(CompletionDelta) error) (StructuredExecutionResult, *Error)
 }
 
 type PassOverrides struct {

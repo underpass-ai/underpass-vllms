@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -184,5 +185,63 @@ func TestCompleteBuildsOpenAIChatStructuredPayload(t *testing.T) {
 	}
 	if jsonSchema["strict"] != true {
 		t.Fatalf("expected json_schema.strict=true, got %#v", jsonSchema["strict"])
+	}
+}
+
+func TestStreamAggregatesContentAndReasoning(t *testing.T) {
+	var got map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte(strings.Join([]string{
+			`data: {"choices":[{"delta":{"content":"{\"value\":"},"finish_reason":null}]}`,
+			``,
+			`data: {"choices":[{"delta":{"reasoning":"hidden"},"finish_reason":null}]}`,
+			``,
+			`data: {"choices":[{"delta":{"content":"\"hello\"}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":11,"completion_tokens":7,"total_tokens":18}}`,
+			``,
+			`data: [DONE]`,
+			``,
+		}, "\n")))
+	}))
+	defer server.Close()
+
+	client := NewClient(ProviderProfileVLLMChatCompletions, server.URL, "EMPTY", time.Second, nil)
+	var seen []domain.CompletionDelta
+	response, err := client.Stream(context.Background(), domain.CompletionRequest{
+		Model:     "google/gemma-4-31B-it",
+		Messages:  []domain.Message{{Role: domain.UserRole, Content: "hello"}},
+		MaxTokens: 256,
+	}, func(delta domain.CompletionDelta) error {
+		seen = append(seen, delta)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got["stream"] != true {
+		t.Fatalf("expected stream=true, got %#v", got["stream"])
+	}
+	if response.Content != `{"value":"hello"}` {
+		t.Fatalf("unexpected content: %q", response.Content)
+	}
+	if response.Reasoning != "hidden" {
+		t.Fatalf("unexpected reasoning: %q", response.Reasoning)
+	}
+	if response.FinishReason != "stop" {
+		t.Fatalf("unexpected finish reason: %q", response.FinishReason)
+	}
+	if response.Usage.TotalTokens != 18 {
+		t.Fatalf("unexpected usage: %#v", response.Usage)
+	}
+	if len(seen) != 3 {
+		t.Fatalf("expected 3 deltas, got %d", len(seen))
+	}
+	if seen[0].Content != "{\"value\":" || seen[1].Reasoning != "hidden" || seen[2].Content != "\"hello\"}" {
+		t.Fatalf("unexpected deltas: %#v", seen)
 	}
 }

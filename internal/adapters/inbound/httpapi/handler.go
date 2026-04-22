@@ -13,8 +13,13 @@ type UseCase interface {
 	Execute(ctx context.Context, request domain.StructuredRequest) (domain.StructuredResponse, *domain.Error)
 }
 
+type StreamUseCase interface {
+	Stream(ctx context.Context, request domain.StructuredRequest, emit func(domain.CompletionDelta) error) (domain.StructuredResponse, *domain.Error)
+}
+
 type Handler struct {
 	useCase     UseCase
+	streamer    StreamUseCase
 	publicModel string
 }
 
@@ -23,6 +28,12 @@ type Option func(*Handler)
 func WithPublicModel(model string) Option {
 	return func(handler *Handler) {
 		handler.publicModel = model
+	}
+}
+
+func WithStreamer(streamer StreamUseCase) Option {
+	return func(handler *Handler) {
+		handler.streamer = streamer
 	}
 }
 
@@ -154,6 +165,10 @@ func (h *Handler) chatCompletions(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, mapErr.StatusCode, mapErr.Payload)
 		return
 	}
+	if requestDTO.Stream {
+		h.streamChatCompletions(w, r, requestDTO, request)
+		return
+	}
 
 	response, execErr := h.useCase.Execute(r.Context(), request)
 	if execErr != nil {
@@ -196,6 +211,10 @@ func (h *Handler) responses(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, mapErr.StatusCode, mapErr.Payload)
 		return
 	}
+	if requestDTO.Stream {
+		h.streamResponses(w, r, requestDTO, request)
+		return
+	}
 
 	response, execErr := h.useCase.Execute(r.Context(), request)
 	if execErr != nil {
@@ -210,4 +229,138 @@ func writeJSON(w http.ResponseWriter, statusCode int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func (h *Handler) streamChatCompletions(
+	w http.ResponseWriter,
+	r *http.Request,
+	requestDTO openAIChatCompletionRequestDTO,
+	request domain.StructuredRequest,
+) {
+	if h.streamer == nil {
+		writeJSON(w, http.StatusBadRequest, newOpenAIInvalidRequest("stream", "stream=true is only supported for single_pass backends").Payload)
+		return
+	}
+
+	stream := newSSEWriter(w)
+	model := requestDTO.Model
+	if request.RequestID == "" {
+		request.RequestID = domain.RequestID(newStreamingRequestID())
+	}
+	started := false
+
+	start := func(requestID string) error {
+		if started {
+			return nil
+		}
+		if err := stream.Start(); err != nil {
+			return err
+		}
+		if err := stream.Data(mapStructuredStreamStartToOpenAIChunkDTO(requestID, model)); err != nil {
+			return err
+		}
+		started = true
+		return nil
+	}
+
+	response, execErr := h.streamer.Stream(r.Context(), request, func(delta domain.CompletionDelta) error {
+		if strings.TrimSpace(delta.Content) == "" {
+			return nil
+		}
+		requestID := string(request.RequestID)
+		if err := start(requestID); err != nil {
+			return err
+		}
+		return stream.Data(mapStructuredStreamDeltaToOpenAIChunkDTO(requestID, model, delta.Content))
+	})
+	if execErr != nil {
+		if !started {
+			writeJSON(w, execErr.StatusCode, mapDomainErrorToOpenAIDTO(execErr))
+			return
+		}
+		_ = stream.Data(mapDomainErrorToOpenAIDTO(execErr))
+		_ = stream.Done()
+		return
+	}
+
+	requestID := string(response.RequestID)
+	if err := start(requestID); err != nil {
+		return
+	}
+	if err := stream.Data(mapStructuredStreamDoneToOpenAIChunkDTO(requestID, model, resolveFinishReason(response.Metadata))); err != nil {
+		return
+	}
+	_ = stream.Done()
+}
+
+func (h *Handler) streamResponses(
+	w http.ResponseWriter,
+	r *http.Request,
+	requestDTO openAIResponsesCreateRequestDTO,
+	request domain.StructuredRequest,
+) {
+	if h.streamer == nil {
+		writeJSON(w, http.StatusBadRequest, newOpenAIInvalidRequest("stream", "stream=true is only supported for single_pass backends").Payload)
+		return
+	}
+
+	stream := newSSEWriter(w)
+	if request.RequestID == "" {
+		request.RequestID = domain.RequestID(newStreamingRequestID())
+	}
+	started := false
+	sequenceNumber := 1
+
+	start := func(requestID string) error {
+		if started {
+			return nil
+		}
+		if err := stream.Start(); err != nil {
+			return err
+		}
+		if err := stream.Data(mapStructuredResponseDomainToResponsesCreatedEventDTO(requestID, requestDTO, h.publicModel)); err != nil {
+			return err
+		}
+		started = true
+		return nil
+	}
+
+	response, execErr := h.streamer.Stream(r.Context(), request, func(delta domain.CompletionDelta) error {
+		if strings.TrimSpace(delta.Content) == "" {
+			return nil
+		}
+		requestID := string(request.RequestID)
+		if err := start(requestID); err != nil {
+			return err
+		}
+		event := mapStructuredResponseDomainToResponsesDeltaEventDTO(requestID, sequenceNumber, delta.Content)
+		sequenceNumber++
+		return stream.Data(event)
+	})
+	if execErr != nil {
+		if !started {
+			writeJSON(w, execErr.StatusCode, mapDomainErrorToOpenAIDTO(execErr))
+			return
+		}
+		_ = stream.Data(mapOpenAIErrorToResponsesEventDTO(sequenceNumber, mapDomainErrorToOpenAIDTO(execErr)))
+		return
+	}
+
+	requestID := string(response.RequestID)
+	if err := start(requestID); err != nil {
+		return
+	}
+
+	outputText := strings.TrimSpace(string(response.Output))
+	if err := stream.Data(mapStructuredResponseDomainToResponsesTextDoneEventDTO(requestID, sequenceNumber, outputText)); err != nil {
+		return
+	}
+	sequenceNumber++
+	if err := stream.Data(openAIResponsesCompletedEventDTO{
+		Type:           "response.completed",
+		SequenceNumber: sequenceNumber,
+		Response:       mapStructuredResponseDomainToResponsesDTO(response, requestDTO, h.publicModel),
+	}); err != nil {
+		return
+	}
 }

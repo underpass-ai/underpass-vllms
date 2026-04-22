@@ -18,9 +18,6 @@ func mapOpenAIChatCompletionRequestDTOToDomain(
 	if err := validateOpenAIModel(dto.Model, publicModel); err != nil {
 		return domain.StructuredRequest{}, err
 	}
-	if dto.Stream {
-		return domain.StructuredRequest{}, newOpenAIInvalidRequest("stream", "stream=true is not supported")
-	}
 	if dto.N != nil && *dto.N != 1 {
 		return domain.StructuredRequest{}, newOpenAIInvalidRequest("n", "only n=1 is supported")
 	}
@@ -89,6 +86,52 @@ func mapStructuredResponseDomainToOpenAIDTO(
 		},
 		Usage:          usage,
 		ResponseFormat: request.ResponseFormat,
+	}
+}
+
+func mapStructuredStreamStartToOpenAIChunkDTO(requestID string, model string) openAIChatCompletionChunkDTO {
+	return openAIChatCompletionChunkDTO{
+		ID:      "chatcmpl-" + requestID,
+		Object:  "chat.completion.chunk",
+		Created: time.Now().Unix(),
+		Model:   model,
+		Choices: []openAIChatCompletionChunkChoiceDTO{
+			{
+				Index: 0,
+				Delta: openAIChatCompletionDeltaDTO{Role: "assistant"},
+			},
+		},
+	}
+}
+
+func mapStructuredStreamDeltaToOpenAIChunkDTO(requestID string, model string, delta string) openAIChatCompletionChunkDTO {
+	return openAIChatCompletionChunkDTO{
+		ID:      "chatcmpl-" + requestID,
+		Object:  "chat.completion.chunk",
+		Created: time.Now().Unix(),
+		Model:   model,
+		Choices: []openAIChatCompletionChunkChoiceDTO{
+			{
+				Index: 0,
+				Delta: openAIChatCompletionDeltaDTO{Content: delta},
+			},
+		},
+	}
+}
+
+func mapStructuredStreamDoneToOpenAIChunkDTO(requestID string, model string, finishReason string) openAIChatCompletionChunkDTO {
+	return openAIChatCompletionChunkDTO{
+		ID:      "chatcmpl-" + requestID,
+		Object:  "chat.completion.chunk",
+		Created: time.Now().Unix(),
+		Model:   model,
+		Choices: []openAIChatCompletionChunkChoiceDTO{
+			{
+				Index:        0,
+				Delta:        openAIChatCompletionDeltaDTO{},
+				FinishReason: &finishReason,
+			},
+		},
 	}
 }
 

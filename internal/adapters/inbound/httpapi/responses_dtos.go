@@ -94,3 +94,41 @@ type openAIResponseUsageDTO struct {
 type openAIResponseOutputTokensDetailsDTO struct {
 	ReasoningTokens int `json:"reasoning_tokens"`
 }
+
+type openAIResponsesCreatedEventDTO struct {
+	Type           string            `json:"type"`
+	SequenceNumber int               `json:"sequence_number"`
+	Response       openAIResponseDTO `json:"response"`
+}
+
+type openAIResponsesOutputTextDeltaEventDTO struct {
+	Type           string `json:"type"`
+	SequenceNumber int    `json:"sequence_number"`
+	ResponseID     string `json:"response_id"`
+	ItemID         string `json:"item_id"`
+	OutputIndex    int    `json:"output_index"`
+	ContentIndex   int    `json:"content_index"`
+	Delta          string `json:"delta"`
+}
+
+type openAIResponsesOutputTextDoneEventDTO struct {
+	Type           string `json:"type"`
+	SequenceNumber int    `json:"sequence_number"`
+	ResponseID     string `json:"response_id"`
+	ItemID         string `json:"item_id"`
+	OutputIndex    int    `json:"output_index"`
+	ContentIndex   int    `json:"content_index"`
+	Text           string `json:"text"`
+}
+
+type openAIResponsesCompletedEventDTO struct {
+	Type           string            `json:"type"`
+	SequenceNumber int               `json:"sequence_number"`
+	Response       openAIResponseDTO `json:"response"`
+}
+
+type openAIResponsesErrorEventDTO struct {
+	Type           string         `json:"type"`
+	SequenceNumber int            `json:"sequence_number"`
+	Error          openAIErrorDTO `json:"error"`
+}

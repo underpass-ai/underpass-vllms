@@ -16,9 +16,6 @@ func mapOpenAIResponsesRequestDTOToDomain(
 	if err := validateOpenAIModel(dto.Model, publicModel); err != nil {
 		return domain.StructuredRequest{}, err
 	}
-	if dto.Stream {
-		return domain.StructuredRequest{}, newOpenAIInvalidRequest("stream", "stream=true is not supported")
-	}
 
 	input, err := flattenResponsesInput(dto.Input)
 	if err != nil {
@@ -211,6 +208,80 @@ func resolveResponsesReasoningEffort(request openAIResponsesCreateRequestDTO) *s
 		return nil
 	}
 	return request.Reasoning.Effort
+}
+
+func mapStructuredResponseDomainToResponsesCreatedEventDTO(
+	requestID string,
+	request openAIResponsesCreateRequestDTO,
+	publicModel string,
+) openAIResponsesCreatedEventDTO {
+	now := time.Now().Unix()
+	model := request.Model
+	if strings.TrimSpace(model) == "" {
+		model = publicModel
+	}
+
+	return openAIResponsesCreatedEventDTO{
+		Type:           "response.created",
+		SequenceNumber: 0,
+		Response: openAIResponseDTO{
+			ID:                "resp_" + requestID,
+			Object:            "response",
+			CreatedAt:         now,
+			CompletedAt:       0,
+			Status:            "in_progress",
+			Error:             nil,
+			IncompleteDetails: nil,
+			Instructions:      normalizeResponsesInstructions(request.Instructions),
+			MaxOutputTokens:   request.MaxOutputTokens,
+			Model:             model,
+			Output:            []openAIResponseOutputItemDTO{},
+			OutputText:        "",
+			Reasoning: openAIResponseReasoningDTO{
+				Effort:  resolveResponsesReasoningEffort(request),
+				Summary: nil,
+			},
+			Text: openAIResponseTextDTO{
+				Format: normalizeResponsesFormat(request.Text),
+			},
+			Usage: openAIResponseUsageDTO{
+				OutputTokensDetails: openAIResponseOutputTokensDetailsDTO{},
+			},
+			Metadata: map[string]string{},
+		},
+	}
+}
+
+func mapStructuredResponseDomainToResponsesDeltaEventDTO(requestID string, sequenceNumber int, delta string) openAIResponsesOutputTextDeltaEventDTO {
+	return openAIResponsesOutputTextDeltaEventDTO{
+		Type:           "response.output_text.delta",
+		SequenceNumber: sequenceNumber,
+		ResponseID:     "resp_" + requestID,
+		ItemID:         "msg_" + requestID,
+		OutputIndex:    0,
+		ContentIndex:   0,
+		Delta:          delta,
+	}
+}
+
+func mapStructuredResponseDomainToResponsesTextDoneEventDTO(requestID string, sequenceNumber int, text string) openAIResponsesOutputTextDoneEventDTO {
+	return openAIResponsesOutputTextDoneEventDTO{
+		Type:           "response.output_text.done",
+		SequenceNumber: sequenceNumber,
+		ResponseID:     "resp_" + requestID,
+		ItemID:         "msg_" + requestID,
+		OutputIndex:    0,
+		ContentIndex:   0,
+		Text:           text,
+	}
+}
+
+func mapOpenAIErrorToResponsesEventDTO(sequenceNumber int, err openAIErrorEnvelopeDTO) openAIResponsesErrorEventDTO {
+	return openAIResponsesErrorEventDTO{
+		Type:           "error",
+		SequenceNumber: sequenceNumber,
+		Error:          err.Error,
+	}
 }
 
 func mapResponsesReasoningEffortPtr(value *openAIResponsesReasoningDTO) *domain.ReasoningEffort {

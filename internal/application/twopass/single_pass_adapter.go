@@ -35,13 +35,8 @@ func (a *SinglePassAdapter) Execute(ctx context.Context, requestID domain.Reques
 	}
 
 	return domain.StructuredExecutionResult{
-		Output: output,
-		Metadata: domain.ResponseMetadata{
-			ExecutionMode:           domain.ExecutionModeSinglePass,
-			SinglePassPromptVersion: a.settings.Versions.SinglePassPrompt,
-			IRVersion:               a.settings.Versions.IR,
-			SinglePass:              metrics,
-		},
+		Output:   output,
+		Metadata: buildSinglePassMetadata(a.settings, metrics),
 	}, nil
 }
 
@@ -73,16 +68,37 @@ func (a *SinglePassAdapter) runSinglePassAttempt(
 	request domain.StructuredRequest,
 	options PassDefaults,
 ) (json.RawMessage, domain.CompletionResponse, time.Duration, *domain.Error) {
+	start := time.Now()
+	response, err := a.formatter.Complete(ctx, buildSinglePassCompletionRequest(a.settings, request, options))
+	latency := time.Since(start)
+	if err != nil {
+		return nil, domain.CompletionResponse{}, latency, transportError(domain.ErrorCodePass2Transport, "Single-pass request failed", err)
+	}
+
+	content := strings.TrimSpace(response.Content)
+	if content == "" {
+		return nil, response, latency, &domain.Error{
+			StatusCode: 502,
+			Code:       domain.ErrorCodePass2Empty,
+			Message:    "Single-pass request returned an empty body",
+		}
+	}
+
+	logSinglePassAttempt(a.logger, requestID, options.Model, response, latency)
+
+	return json.RawMessage(content), response, latency, nil
+}
+
+func buildSinglePassCompletionRequest(settings Settings, request domain.StructuredRequest, options PassDefaults) domain.CompletionRequest {
 	userPrompt := buildSinglePassPrompt(
-		a.settings.PromptTemplates.SinglePassUser,
-		a.settings.PromptTemplates.Pass2RetryHint,
+		settings.PromptTemplates.SinglePassUser,
+		settings.PromptTemplates.Pass2RetryHint,
 		request.Input,
 		request.Schema,
 		"",
 	)
 
-	start := time.Now()
-	response, err := a.formatter.Complete(ctx, domain.CompletionRequest{
+	return domain.CompletionRequest{
 		Model: options.Model,
 		Messages: []domain.Message{
 			{Role: domain.SystemRole, Content: options.SystemPrompt},
@@ -98,30 +114,35 @@ func (a *SinglePassAdapter) runSinglePassAttempt(
 		ReasoningEffort:     options.ReasoningEffort,
 		PreserveThinking:    options.PreserveThinking,
 		StructuredSchema:    request.Schema,
-	})
-	latency := time.Since(start)
-	if err != nil {
-		return nil, domain.CompletionResponse{}, latency, transportError(domain.ErrorCodePass2Transport, "Single-pass request failed", err)
 	}
+}
 
-	content := strings.TrimSpace(response.Content)
-	if content == "" {
-		return nil, response, latency, &domain.Error{
-			StatusCode: 502,
-			Code:       domain.ErrorCodePass2Empty,
-			Message:    "Single-pass request returned an empty body",
-		}
+func logSinglePassAttempt(
+	logger *log.Logger,
+	requestID domain.RequestID,
+	model domain.ModelName,
+	response domain.CompletionResponse,
+	latency time.Duration,
+) {
+	if logger == nil {
+		return
 	}
-
-	a.logger.Printf(
+	logger.Printf(
 		"request_id=%s adapter=single_pass model=%s latency_ms=%d finish_reason=%s content_present=%t reasoning_present=%t",
 		requestID,
-		options.Model,
+		model,
 		latency.Milliseconds(),
 		response.FinishReason,
-		content != "",
+		strings.TrimSpace(response.Content) != "",
 		strings.TrimSpace(response.Reasoning) != "",
 	)
+}
 
-	return json.RawMessage(content), response, latency, nil
+func buildSinglePassMetadata(settings Settings, metrics domain.PassMetrics) domain.ResponseMetadata {
+	return domain.ResponseMetadata{
+		ExecutionMode:           domain.ExecutionModeSinglePass,
+		SinglePassPromptVersion: settings.Versions.SinglePassPrompt,
+		IRVersion:               settings.Versions.IR,
+		SinglePass:              metrics,
+	}
 }

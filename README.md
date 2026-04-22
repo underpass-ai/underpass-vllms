@@ -81,6 +81,7 @@ La diferencia entre `reasoning` y `structured` no la adivina el chart. Debes dec
 - API publica del orquestador:
   - custom en `/v1/two-pass/structured`
   - OpenAI-compatible en `/v1/chat/completions`, `/v1/responses` y `/v1/models`
+  - `stream=true` en `/v1/chat/completions` y `/v1/responses` solo cuando el backend activo es `single_pass`
 - APIs upstream de inferencia: OpenAI-compatible (`/v1/chat/completions`)
 
 ## Estado recomendado del laboratorio

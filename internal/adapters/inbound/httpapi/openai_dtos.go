@@ -52,6 +52,25 @@ type openAIChatCompletionResponseDTO struct {
 	ResponseFormat *openAIResponseFormatDTO        `json:"response_format,omitempty"`
 }
 
+type openAIChatCompletionChunkDTO struct {
+	ID      string                               `json:"id"`
+	Object  string                               `json:"object"`
+	Created int64                                `json:"created"`
+	Model   string                               `json:"model"`
+	Choices []openAIChatCompletionChunkChoiceDTO `json:"choices"`
+}
+
+type openAIChatCompletionChunkChoiceDTO struct {
+	Index        int                          `json:"index"`
+	Delta        openAIChatCompletionDeltaDTO `json:"delta"`
+	FinishReason *string                      `json:"finish_reason"`
+}
+
+type openAIChatCompletionDeltaDTO struct {
+	Role    string `json:"role,omitempty"`
+	Content string `json:"content,omitempty"`
+}
+
 type openAIChatCompletionChoiceDTO struct {
 	Index        int                  `json:"index"`
 	Message      openAIChatMessageDTO `json:"message"`
