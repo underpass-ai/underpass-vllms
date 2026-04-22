@@ -37,6 +37,7 @@ func NewHandler(useCase UseCase, options ...Option) http.Handler {
 	mux.HandleFunc("/v1/models", handler.models)
 	mux.HandleFunc("/v1/models/", handler.modelByID)
 	mux.HandleFunc("/v1/chat/completions", handler.chatCompletions)
+	mux.HandleFunc("/v1/responses", handler.responses)
 	mux.HandleFunc("/v1/two-pass/structured", handler.structured)
 	return mux
 }
@@ -161,6 +162,48 @@ func (h *Handler) chatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, mapStructuredResponseDomainToOpenAIDTO(response, requestDTO, h.publicModel))
+}
+
+func (h *Handler) responses(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, openAIErrorEnvelopeDTO{
+			Error: openAIErrorDTO{
+				Message: "only POST is supported",
+				Type:    "invalid_request_error",
+				Code:    "method_not_allowed",
+			},
+		})
+		return
+	}
+
+	defer r.Body.Close()
+
+	var requestDTO openAIResponsesCreateRequestDTO
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&requestDTO); err != nil {
+		writeJSON(w, http.StatusBadRequest, openAIErrorEnvelopeDTO{
+			Error: openAIErrorDTO{
+				Message: err.Error(),
+				Type:    "invalid_request_error",
+				Code:    "invalid_request_error",
+			},
+		})
+		return
+	}
+
+	request, mapErr := mapOpenAIResponsesRequestDTOToDomain(requestDTO, h.publicModel)
+	if mapErr != nil {
+		writeJSON(w, mapErr.StatusCode, mapErr.Payload)
+		return
+	}
+
+	response, execErr := h.useCase.Execute(r.Context(), request)
+	if execErr != nil {
+		writeJSON(w, execErr.StatusCode, mapDomainErrorToOpenAIDTO(execErr))
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mapStructuredResponseDomainToResponsesDTO(response, requestDTO, h.publicModel))
 }
 
 func writeJSON(w http.ResponseWriter, statusCode int, payload any) {

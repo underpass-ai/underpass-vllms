@@ -9,6 +9,7 @@
 | `GET` | `/v1/models` | lista OpenAI-compatible de modelos expuestos por el orquestador |
 | `GET` | `/v1/models/{id}` | detalle OpenAI-compatible del modelo expuesto |
 | `POST` | `/v1/chat/completions` | fachada OpenAI-compatible sobre el mismo caso de uso |
+| `POST` | `/v1/responses` | fachada Responses API sobre el mismo caso de uso |
 | `POST` | `/v1/two-pass/structured` | ejecucion estructurada completa en `two_pass` o `single_pass` |
 
 La ruta mantiene el nombre `two-pass` por compatibilidad historica. El modo real de ejecucion se expone en `metadata.execution_mode`.
@@ -21,6 +22,8 @@ La compatibilidad OpenAI esta centrada en structured extraction:
 - `POST /v1/chat/completions`
 
 No intenta replicar toda la plataforma OpenAI. La parte util aqui es mapear clientes de `chat.completions` al mismo orquestador sin forzarles a consumir la API custom.
+
+La misma filosofia aplica a `POST /v1/responses`: se soporta el subconjunto util para structured extraction, no toda la superficie completa de la Responses API.
 
 ## Request Body
 
@@ -358,5 +361,133 @@ curl -s http://localhost:8080/v1/chat/completions \
       }
     }
   }
+}
+```
+
+## OpenAI-Compatible Responses API
+
+### Request soportada
+
+`POST /v1/responses` acepta un subconjunto util del contrato oficial:
+
+- `model`
+- `input`
+- `instructions`
+- `text.format`
+- `temperature`
+- `top_p`
+- `max_output_tokens`
+- `reasoning.effort`
+- `stream=false`
+
+### Restricciones intencionales
+
+- no hay streaming
+- no hay tools
+- no hay conversation state
+- no hay `previous_response_id`
+- el caso de uso principal es `text.format.type=json_schema`
+- `json_object` tambien se acepta
+- `text.format.type=text` no se soporta en este orquestador
+
+### Mapeo interno
+
+- `instructions` se inserta como bloque de instrucciones al principio del `input` interno
+- `input` string se trata como mensaje `user`
+- `input` array se aplana a transcript por roles
+- `text.format` aporta el schema
+- la respuesta se devuelve como objeto `response` con:
+  - `output`
+  - `output_text`
+  - `usage`
+  - `text.format`
+
+### Example Request
+
+```bash
+curl -s http://localhost:8080/v1/responses \
+  -H 'content-type: application/json' \
+  -d '{
+    "model": "google/gemma-4-31B-it",
+    "instructions": "Extract strictly and return valid JSON.",
+    "input": "Invoice INV-2026-0017 from ACME Logistics. Total 1540.25 EUR.",
+    "text": {
+      "format": {
+        "type": "json_schema",
+        "name": "invoice_v1",
+        "strict": true,
+        "schema": {
+          "type": "object",
+          "properties": {
+            "invoice_number": { "type": "string" },
+            "currency": { "type": "string" }
+          },
+          "required": ["invoice_number", "currency"],
+          "additionalProperties": false
+        }
+      }
+    }
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "id": "resp_053abd05e4c7decb",
+  "object": "response",
+  "created_at": 1760000000,
+  "completed_at": 1760000000,
+  "status": "completed",
+  "error": null,
+  "incomplete_details": null,
+  "instructions": "Extract strictly and return valid JSON.",
+  "max_output_tokens": null,
+  "model": "google/gemma-4-31B-it",
+  "output": [
+    {
+      "id": "msg_053abd05e4c7decb",
+      "type": "message",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"invoice_number\":\"INV-2026-0017\",\"currency\":\"EUR\"}",
+          "annotations": []
+        }
+      ]
+    }
+  ],
+  "output_text": "{\"invoice_number\":\"INV-2026-0017\",\"currency\":\"EUR\"}",
+  "reasoning": {
+    "effort": null,
+    "summary": null
+  },
+  "text": {
+    "format": {
+      "type": "json_schema",
+      "name": "invoice_v1",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "invoice_number": { "type": "string" },
+          "currency": { "type": "string" }
+        },
+        "required": ["invoice_number", "currency"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "usage": {
+    "input_tokens": 191,
+    "output_tokens": 6,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 197
+  },
+  "metadata": {}
 }
 ```

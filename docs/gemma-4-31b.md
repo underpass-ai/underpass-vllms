@@ -17,7 +17,7 @@ Modelo oficial:
 - modo del orquestador: `single_pass`
 - backend HTTP: `vllm_chat_completions`
 - release usada en laboratorio: `underpass-llm-gemma-4-31b`
-- imagen actual del orquestador: `registry.underpassai.com/underpass-vllms:20260422-openai-chat-compat`
+- imagen actual del orquestador: `registry.underpassai.com/underpass-vllms:20260422-openai-responses-compat`
 
 ## Decisiones de configuracion
 
