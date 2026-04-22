@@ -258,3 +258,79 @@ func TestResponsesRejectsTextFormat(t *testing.T) {
 		t.Fatalf("unexpected body: %s", recorder.Body.String())
 	}
 }
+
+func TestChatCompletionsMapsDomainServerErrorToOpenAIErrorShape(t *testing.T) {
+	handler := NewHandler(&useCaseStub{
+		err: &domain.Error{
+			StatusCode: 502,
+			Code:       domain.ErrorCodePass2Transport,
+			Message:    "Pass 2 request failed",
+			Retryable:  true,
+		},
+	}, WithPublicModel("google/gemma-4-31B-it"))
+
+	body := `{
+		"model":"google/gemma-4-31B-it",
+		"messages":[{"role":"user","content":"hello"}],
+		"response_format":{
+			"type":"json_schema",
+			"json_schema":{
+				"name":"hello_schema",
+				"schema":{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}
+			}
+		}
+	}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadGateway {
+		t.Fatalf("expected status 502, got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"type":"server_error"`) {
+		t.Fatalf("unexpected body: %s", recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"pass2_transport_failure"`) {
+		t.Fatalf("unexpected body: %s", recorder.Body.String())
+	}
+}
+
+func TestResponsesMapsDomainInvalidRequestToOpenAIErrorShape(t *testing.T) {
+	handler := NewHandler(&useCaseStub{
+		err: &domain.Error{
+			StatusCode: 400,
+			Code:       domain.ErrorCodeInvalidRequest,
+			Message:    "input is required",
+		},
+	}, WithPublicModel("google/gemma-4-31B-it"))
+
+	body := `{
+		"model":"google/gemma-4-31B-it",
+		"input":"hello",
+		"text":{
+			"format":{
+				"type":"json_schema",
+				"name":"hello_schema",
+				"schema":{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}
+			}
+		}
+	}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"type":"invalid_request_error"`) {
+		t.Fatalf("unexpected body: %s", recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"param":"input"`) {
+		t.Fatalf("unexpected body: %s", recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"invalid_request"`) {
+		t.Fatalf("unexpected body: %s", recorder.Body.String())
+	}
+}

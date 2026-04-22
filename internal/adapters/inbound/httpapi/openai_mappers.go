@@ -93,16 +93,19 @@ func mapStructuredResponseDomainToOpenAIDTO(
 }
 
 func mapDomainErrorToOpenAIDTO(err *domain.Error) openAIErrorEnvelopeDTO {
-	errorType := "api_error"
-	if err.StatusCode >= 400 && err.StatusCode < 500 {
-		errorType = "invalid_request_error"
+	errorType := mapOpenAIErrorType(err.StatusCode)
+	errorCode := string(err.Code)
+	if strings.TrimSpace(errorCode) == "" {
+		errorCode = errorType
 	}
+	param := inferOpenAIErrorParam(err)
 
 	return openAIErrorEnvelopeDTO{
 		Error: openAIErrorDTO{
 			Message: err.Message,
 			Type:    errorType,
-			Code:    string(err.Code),
+			Param:   param,
+			Code:    errorCode,
 		},
 	}
 }
@@ -318,4 +321,31 @@ func newOpenAIInvalidRequest(param string, message string) *openAIRequestError {
 			},
 		},
 	}
+}
+
+func mapOpenAIErrorType(statusCode int) string {
+	switch {
+	case statusCode >= 400 && statusCode < 500:
+		return "invalid_request_error"
+	case statusCode >= 500:
+		return "server_error"
+	default:
+		return "api_error"
+	}
+}
+
+func inferOpenAIErrorParam(err *domain.Error) string {
+	if err == nil {
+		return ""
+	}
+	switch err.Code {
+	case domain.ErrorCodeInvalidRequest:
+		switch {
+		case strings.Contains(strings.ToLower(err.Message), "input"):
+			return "input"
+		case strings.Contains(strings.ToLower(err.Message), "schema"):
+			return "schema"
+		}
+	}
+	return ""
 }
