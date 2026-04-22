@@ -1,10 +1,10 @@
-{{- if and .Values.cache.enabled (not .Values.cache.existingClaim) }}
+{{- if and (or .Values.reasoning.enabled .Values.structured.enabled) .Values.cache.enabled (not .Values.cache.existingClaim) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "vllm.cacheName" . }}
+  name: {{ include "underpass-llm.cacheName" . }}
   labels:
-    {{- include "vllm.labels" . | nindent 4 }}
+    {{- include "underpass-llm.labels" . | nindent 4 }}
 spec:
   accessModes:
     - {{ .Values.cache.accessMode }}

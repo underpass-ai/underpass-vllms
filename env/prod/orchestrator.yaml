@@ -1,0 +1,123 @@
+cache:
+  enabled: false
+  existingClaim: ""
+  storageClass: ""
+  size: 80Gi
+  accessMode: ReadWriteOnce
+  mountPath: /tmp/hf-cache
+  emptyDirSizeLimit: 20Gi
+
+dns:
+  route53:
+    enabled: true
+    target: 192.168.1.241
+    ttl: 300
+    region: eu-south-2
+    credentialsSecret: prod-route53-credentials-secret
+    accessKeyIdKey: access-key-id
+    secretAccessKeyKey: secret-access-key
+    hostedZoneIdKey: hosted-zone-id
+    image:
+      repository: public.ecr.aws/aws-cli/aws-cli
+      tag: "2.17.47"
+      pullPolicy: IfNotPresent
+
+orchestrator:
+  enabled: true
+  replicaCount: 1
+  imagePullSecrets:
+    - ghcr-pull-secret
+  image:
+    repository: ghcr.io/tgarciai/underpass-vllms
+    tag: 20260421-qwen-modeltype
+    pullPolicy: IfNotPresent
+  addr: :8080
+  modelType: qwen_reasoning
+  pass1:
+    provider: vllm_chat_completions
+    baseURL: http://underpass-llm-reasoning-reasoning.underpass-runtime.svc.cluster.local:8000/v1
+    model: palmfuture/Qwen3.6-35B-A3B-GPTQ-Int4
+    apiKey: EMPTY
+  pass2:
+    provider: vllm_chat_completions
+    baseURL: http://underpass-llm-structured-structured.underpass-runtime.svc.cluster.local:8000/v1
+    model: palmfuture/Qwen3.6-35B-A3B-GPTQ-Int4
+    apiKey: EMPTY
+  config:
+    maxIntermediateBytes: 65536
+    pass2RetryCount: 1
+    pass1PromptVersion: 2026-04-21.2
+    pass2PromptVersion: 2026-04-21.1
+    irVersion: 1.0.0
+    pass1SystemPrompt: |-
+      You are a semantic extraction engine. Think if useful, but keep the reasoning concise and keep it out of the final answer. Always finish with a compact complete intermediate representation as the final answer. The final answer must contain only the intermediate representation, with no markdown fences, no headings, no labels, and no commentary. Do not force the output into strict JSON. Do not invent missing values. Mark uncertainty explicitly.
+    pass2SystemPrompt: |-
+      You are a strict JSON canonicalization engine. Return only valid JSON. Respect the schema exactly. Do not add fields. Do not invent values. Use only facts explicitly present in the intermediate representation. Prefer the most specific literal value from the intermediate representation for each schema field. Do not replace specific attributes with generic entity labels or types such as Person, Organization, Document, Event, or Thing. If information is missing, use null only if the schema allows it.
+    pass1UserPromptTemplate: |-
+      Given the following input, extract all facts required for the downstream schema.
+
+      Requirements:
+      - Preserve meaning.
+      - Do not hallucinate.
+      - Mark uncertain fields explicitly.
+      - If a field is missing, say it is missing.
+      - Keep any reasoning brief and keep it out of the final answer.
+      - The final answer must contain only the intermediate representation.
+      - Do not include markdown fences, headings, labels, bullet lists about your process, or explanatory prose in the final answer.
+      - End with a compact final intermediate representation that can be passed to a JSON canonicalizer.
+      - Return the result using the agreed intermediate format.
+
+      Input:
+      {{input}}
+    pass2UserPromptTemplate: |-
+      Convert the following intermediate representation into the target schema.
+
+      Rules:
+      - Do not add new facts.
+      - Copy values from the intermediate representation as literally as possible.
+      - Prefer specific extracted attributes over generic entity labels or types.
+      - If the intermediate representation contains both an entity type and a more specific field value, use the more specific field value.
+      - If a schema field expects a scalar and the intermediate representation provides a list, choose the single most relevant literal item from that list.
+      - Output exactly one JSON value that matches the target schema.
+
+      Target JSON schema:
+      {{schema}}
+
+      Intermediate representation:
+      {{intermediate}}
+    pass2RetryHintTemplate: |-
+      Previous attempt failed validation. Correct the output using this feedback:
+      {{hint}}
+    pass1Temperature: "0.6"
+    pass1TopP: "0.95"
+    pass1TopK: "20"
+    pass1PresencePenalty: "0"
+    pass1RepetitionPenalty: "1.0"
+    pass2Temperature: "0"
+    pass1MaxTokens: 4096
+    pass2MaxTokens: 4096
+    pass1ThinkingTokenBudget: 2048
+    pass1PreserveThinking: "true"
+    pass1Timeout: 45s
+    pass2Timeout: 45s
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: true
+    className: nginx
+    host: llm.underpassai.com
+    tls:
+      enabled: true
+      secretName: llm-server-tls
+      clusterIssuer: letsencrypt-prod-r53
+    mtls:
+      enabled: true
+      clientCaSecret: underpass-runtime-tls

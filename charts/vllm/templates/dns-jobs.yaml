@@ -1,0 +1,67 @@
+{{- if .Values.dns.route53.enabled }}
+{{- $root := . -}}
+{{- $target := required "dns.route53.target is required when dns.route53.enabled=true" .Values.dns.route53.target -}}
+{{- range $component := list "reasoning" "structured" "orchestrator" }}
+{{- $cfg := index $root.Values $component }}
+{{- if and $cfg.enabled $cfg.ingress.enabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "underpass-llm.componentName" (dict "root" $root "component" (printf "%s-dns" $component)) }}
+  labels:
+    {{- include "underpass-llm.componentLabels" (dict "root" $root "component" $component) | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "10"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        {{- include "underpass-llm.componentSelectorLabels" (dict "root" $root "component" $component) | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: route53
+          image: "{{ $root.Values.dns.route53.image.repository }}:{{ $root.Values.dns.route53.image.tag }}"
+          imagePullPolicy: {{ $root.Values.dns.route53.image.pullPolicy }}
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "dns.route53.credentialsSecret is required when dns.route53.enabled=true" $root.Values.dns.route53.credentialsSecret }}
+                  key: {{ required "dns.route53.accessKeyIdKey is required when dns.route53.enabled=true" $root.Values.dns.route53.accessKeyIdKey }}
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "dns.route53.credentialsSecret is required when dns.route53.enabled=true" $root.Values.dns.route53.credentialsSecret }}
+                  key: {{ required "dns.route53.secretAccessKeyKey is required when dns.route53.enabled=true" $root.Values.dns.route53.secretAccessKeyKey }}
+            - name: AWS_DEFAULT_REGION
+              value: {{ required "dns.route53.region is required when dns.route53.enabled=true" $root.Values.dns.route53.region | quote }}
+            - name: HOSTED_ZONE_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "dns.route53.credentialsSecret is required when dns.route53.enabled=true" $root.Values.dns.route53.credentialsSecret }}
+                  key: {{ required "dns.route53.hostedZoneIdKey is required when dns.route53.enabled=true" $root.Values.dns.route53.hostedZoneIdKey }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              aws route53 change-resource-record-sets \
+                --hosted-zone-id "$HOSTED_ZONE_ID" \
+                --change-batch '{
+                  "Changes": [{
+                    "Action": "UPSERT",
+                    "ResourceRecordSet": {
+                      "Name": "{{ $cfg.ingress.host }}",
+                      "Type": "A",
+                      "TTL": {{ $root.Values.dns.route53.ttl }},
+                      "ResourceRecords": [{"Value": "{{ $target }}"}]
+                    }
+                  }]
+                }'
+{{- end }}
+{{- end }}
+{{- end }}

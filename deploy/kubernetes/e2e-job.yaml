@@ -1,0 +1,57 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: two-pass-server-e2e
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: e2e
+          image: curlimages/curl:8.12.1
+          env:
+            - name: TWO_PASS_SERVER_URL
+              value: http://two-pass-server.default.svc.cluster.local:8080
+          command:
+            - /bin/sh
+            - -ceu
+            - |
+              curl -fsS "${TWO_PASS_SERVER_URL}/healthz" | grep -q '"status":"ok"'
+
+              RESPONSE="$(curl -fsS "${TWO_PASS_SERVER_URL}/v1/two-pass/structured" \
+                -H 'content-type: application/json' \
+                -d '{
+                  "input": "Invoice INV-2026-0017 from ACME Logistics. Total 1540.25 EUR. Invoice date 2026-04-18. Due 2026-05-18.",
+                  "schema_version": "invoice-v1",
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "invoice_number": { "type": "string" },
+                      "supplier_name": { "type": "string" },
+                      "currency": { "type": "string" },
+                      "total_amount": { "type": "number" },
+                      "invoice_date": { "type": "string" },
+                      "due_date": { "type": "string" },
+                      "warnings": {
+                        "type": "array",
+                        "items": { "type": "string" }
+                      }
+                    },
+                    "required": [
+                      "invoice_number",
+                      "supplier_name",
+                      "currency",
+                      "total_amount",
+                      "invoice_date",
+                      "due_date",
+                      "warnings"
+                    ],
+                    "additionalProperties": false
+                  }
+                }')"
+
+              echo "${RESPONSE}"
+              echo "${RESPONSE}" | grep -q '"request_id"'
+              echo "${RESPONSE}" | grep -q '"output"'
+              echo "${RESPONSE}" | grep -q '"invoice_number"'

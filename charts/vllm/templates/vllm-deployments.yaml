@@ -1,0 +1,107 @@
+{{- $root := . -}}
+{{- $cacheName := include "underpass-llm.cacheName" . -}}
+{{- if .Values.cache.existingClaim }}
+  {{- $cacheName = .Values.cache.existingClaim -}}
+{{- end }}
+{{- range $component := list "reasoning" "structured" }}
+{{- $cfg := index $root.Values $component }}
+{{- if $cfg.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "underpass-llm.componentName" (dict "root" $root "component" $component) }}
+  labels:
+    {{- include "underpass-llm.componentLabels" (dict "root" $root "component" $component) | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+    rollingUpdate: null
+  selector:
+    matchLabels:
+      {{- include "underpass-llm.componentSelectorLabels" (dict "root" $root "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "underpass-llm.componentSelectorLabels" (dict "root" $root "component" $component) | nindent 8 }}
+    spec:
+      enableServiceLinks: false
+      {{- with $cfg.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range . }}
+        - name: {{ . | quote }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: vllm
+          image: "{{ required (printf "%s.image.repository is required when %s.enabled=true" $component $component) $cfg.image.repository }}:{{ required (printf "%s.image.tag is required when %s.enabled=true" $component $component) $cfg.image.tag }}"
+          imagePullPolicy: {{ $cfg.image.pullPolicy }}
+          args:
+            - "--model={{ required (printf "%s.model is required when %s.enabled=true" $component $component) $cfg.model }}"
+            - "--tensor-parallel-size={{ required (printf "%s.tensorParallelSize is required when %s.enabled=true" $component $component) $cfg.tensorParallelSize }}"
+            - "--max-model-len={{ required (printf "%s.maxModelLen is required when %s.enabled=true" $component $component) $cfg.maxModelLen }}"
+            - "--max-num-seqs={{ required (printf "%s.maxNumSeqs is required when %s.enabled=true" $component $component) $cfg.maxNumSeqs }}"
+            - "--gpu-memory-utilization={{ required (printf "%s.gpuMemoryUtilization is required when %s.enabled=true" $component $component) $cfg.gpuMemoryUtilization }}"
+            - "--host=0.0.0.0"
+            - "--port={{ required (printf "%s.service.port is required when %s.enabled=true" $component $component) $cfg.service.port }}"
+            - "--trust-remote-code"
+            {{- if $cfg.enforceEager }}
+            - "--enforce-eager"
+            {{- end }}
+            {{- range $cfg.extraArgs }}
+            - {{ . | quote }}
+            {{- end }}
+          env:
+            {{- range $key, $value := $cfg.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if $cfg.huggingface.tokenSecret }}
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $cfg.huggingface.tokenSecret }}
+                  key: {{ $cfg.huggingface.tokenKey | default "HF_TOKEN" }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ $cfg.service.port }}
+              protocol: TCP
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: {{ $cfg.probes.startup.periodSeconds }}
+            failureThreshold: {{ $cfg.probes.startup.failureThreshold }}
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: {{ $cfg.probes.readiness.periodSeconds }}
+            failureThreshold: {{ $cfg.probes.readiness.failureThreshold }}
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: {{ $cfg.probes.liveness.periodSeconds }}
+            failureThreshold: {{ $cfg.probes.liveness.failureThreshold }}
+          resources:
+            {{- toYaml $cfg.resources | nindent 12 }}
+          volumeMounts:
+            - name: hf-cache
+              mountPath: {{ $root.Values.cache.mountPath }}
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: hf-cache
+          {{- if $root.Values.cache.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ $cacheName }}
+          {{- else }}
+          emptyDir:
+            sizeLimit: {{ $root.Values.cache.emptyDirSizeLimit }}
+          {{- end }}
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: {{ $cfg.shmSizeLimit }}
+{{- end }}
+{{- end }}

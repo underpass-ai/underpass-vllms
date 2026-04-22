@@ -1,0 +1,170 @@
+{{- if .Values.orchestrator.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "underpass-llm.componentName" (dict "root" . "component" "orchestrator") }}
+  labels:
+    {{- include "underpass-llm.componentLabels" (dict "root" . "component" "orchestrator") | nindent 4 }}
+spec:
+  replicas: {{ .Values.orchestrator.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "underpass-llm.componentSelectorLabels" (dict "root" . "component" "orchestrator") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "underpass-llm.componentSelectorLabels" (dict "root" . "component" "orchestrator") | nindent 8 }}
+    spec:
+      enableServiceLinks: false
+      {{- $modelType := required "orchestrator.modelType is required when orchestrator.enabled=true" .Values.orchestrator.modelType }}
+      {{- with .Values.orchestrator.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range . }}
+        - name: {{ . | quote }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: orchestrator
+          image: "{{ required "orchestrator.image.repository is required when orchestrator.enabled=true" .Values.orchestrator.image.repository }}:{{ required "orchestrator.image.tag is required when orchestrator.enabled=true" .Values.orchestrator.image.tag }}"
+          imagePullPolicy: {{ .Values.orchestrator.image.pullPolicy }}
+          env:
+            - name: SERVER_ADDR
+              value: {{ required "orchestrator.addr is required when orchestrator.enabled=true" .Values.orchestrator.addr | quote }}
+            - name: MODEL_TYPE
+              value: {{ $modelType | quote }}
+            - name: PASS2_BASE_URL
+              value: {{ include "underpass-llm.orchestratorPass2BaseURL" . | quote }}
+            - name: PASS2_MODEL
+              value: {{ include "underpass-llm.orchestratorPass2Model" . | quote }}
+            - name: PASS2_PROVIDER
+              value: {{ required "orchestrator.pass2.provider is required when orchestrator.enabled=true" .Values.orchestrator.pass2.provider | quote }}
+            - name: PASS2_API_KEY
+              value: {{ required "orchestrator.pass2.apiKey is required when orchestrator.enabled=true" .Values.orchestrator.pass2.apiKey | quote }}
+            {{- if eq $modelType "qwen_reasoning" }}
+            - name: PASS1_PROVIDER
+              value: {{ required "orchestrator.pass1.provider is required when orchestrator.modelType=qwen_reasoning" .Values.orchestrator.pass1.provider | quote }}
+            - name: PASS1_BASE_URL
+              value: {{ include "underpass-llm.orchestratorPass1BaseURL" . | quote }}
+            - name: PASS1_MODEL
+              value: {{ include "underpass-llm.orchestratorPass1Model" . | quote }}
+            - name: PASS1_API_KEY
+              value: {{ required "orchestrator.pass1.apiKey is required when orchestrator.modelType=qwen_reasoning" .Values.orchestrator.pass1.apiKey | quote }}
+            {{- end }}
+            {{- if .Values.orchestrator.config.maxIntermediateBytes }}
+            - name: MAX_INTERMEDIATE_BYTES
+              value: {{ .Values.orchestrator.config.maxIntermediateBytes | quote }}
+            {{- end }}
+            {{- if .Values.orchestrator.config.pass2RetryCount }}
+            - name: PASS2_RETRY_COUNT
+              value: {{ .Values.orchestrator.config.pass2RetryCount | quote }}
+            {{- end }}
+            - name: IR_VERSION
+              value: {{ required "orchestrator.config.irVersion is required when orchestrator.enabled=true" .Values.orchestrator.config.irVersion | quote }}
+            - name: PASS2_RETRY_HINT_TEMPLATE
+              value: |-
+{{ required "orchestrator.config.pass2RetryHintTemplate is required when orchestrator.enabled=true" .Values.orchestrator.config.pass2RetryHintTemplate | nindent 16 }}
+            - name: PASS2_TIMEOUT
+              value: {{ required "orchestrator.config.pass2Timeout is required when orchestrator.enabled=true" .Values.orchestrator.config.pass2Timeout | quote }}
+            - name: PASS2_TEMPERATURE
+              value: {{ required "orchestrator.config.pass2Temperature is required when orchestrator.enabled=true" .Values.orchestrator.config.pass2Temperature | quote }}
+            {{- if .Values.orchestrator.config.pass2TopP }}
+            - name: PASS2_TOP_P
+              value: {{ .Values.orchestrator.config.pass2TopP | quote }}
+            {{- end }}
+            {{- if .Values.orchestrator.config.pass2TopK }}
+            - name: PASS2_TOP_K
+              value: {{ .Values.orchestrator.config.pass2TopK | quote }}
+            {{- end }}
+            {{- if .Values.orchestrator.config.pass2PresencePenalty }}
+            - name: PASS2_PRESENCE_PENALTY
+              value: {{ .Values.orchestrator.config.pass2PresencePenalty | quote }}
+            {{- end }}
+            {{- if .Values.orchestrator.config.pass2RepetitionPenalty }}
+            - name: PASS2_REPETITION_PENALTY
+              value: {{ .Values.orchestrator.config.pass2RepetitionPenalty | quote }}
+            {{- end }}
+            {{- if .Values.orchestrator.config.pass2MaxTokens }}
+            - name: PASS2_MAX_TOKENS
+              value: {{ .Values.orchestrator.config.pass2MaxTokens | quote }}
+            {{- end }}
+            {{- if .Values.orchestrator.config.pass2ThinkingTokenBudget }}
+            - name: PASS2_THINKING_TOKEN_BUDGET
+              value: {{ .Values.orchestrator.config.pass2ThinkingTokenBudget | quote }}
+            {{- end }}
+            {{- if ne .Values.orchestrator.config.pass2ReasoningEffort "" }}
+            - name: PASS2_REASONING_EFFORT
+              value: {{ .Values.orchestrator.config.pass2ReasoningEffort | quote }}
+            {{- end }}
+            {{- if ne .Values.orchestrator.config.pass2PreserveThinking "" }}
+            - name: PASS2_PRESERVE_THINKING
+              value: {{ .Values.orchestrator.config.pass2PreserveThinking | quote }}
+            {{- end }}
+            {{- if eq $modelType "qwen_reasoning" }}
+            - name: PASS1_PROMPT_VERSION
+              value: {{ required "orchestrator.config.pass1PromptVersion is required when orchestrator.modelType=qwen_reasoning" .Values.orchestrator.config.pass1PromptVersion | quote }}
+            - name: PASS2_PROMPT_VERSION
+              value: {{ required "orchestrator.config.pass2PromptVersion is required when orchestrator.modelType=qwen_reasoning" .Values.orchestrator.config.pass2PromptVersion | quote }}
+            - name: PASS1_SYSTEM_PROMPT
+              value: |-
+{{ required "orchestrator.config.pass1SystemPrompt is required when orchestrator.modelType=qwen_reasoning" .Values.orchestrator.config.pass1SystemPrompt | nindent 16 }}
+            - name: PASS2_SYSTEM_PROMPT
+              value: |-
+{{ required "orchestrator.config.pass2SystemPrompt is required when orchestrator.modelType=qwen_reasoning" .Values.orchestrator.config.pass2SystemPrompt | nindent 16 }}
+            - name: PASS1_USER_PROMPT_TEMPLATE
+              value: |-
+{{ required "orchestrator.config.pass1UserPromptTemplate is required when orchestrator.modelType=qwen_reasoning" .Values.orchestrator.config.pass1UserPromptTemplate | nindent 16 }}
+            - name: PASS2_USER_PROMPT_TEMPLATE
+              value: |-
+{{ required "orchestrator.config.pass2UserPromptTemplate is required when orchestrator.modelType=qwen_reasoning" .Values.orchestrator.config.pass2UserPromptTemplate | nindent 16 }}
+            - name: PASS1_TIMEOUT
+              value: {{ required "orchestrator.config.pass1Timeout is required when orchestrator.modelType=qwen_reasoning" .Values.orchestrator.config.pass1Timeout | quote }}
+            - name: PASS1_TEMPERATURE
+              value: {{ required "orchestrator.config.pass1Temperature is required when orchestrator.modelType=qwen_reasoning" .Values.orchestrator.config.pass1Temperature | quote }}
+            - name: PASS1_TOP_P
+              value: {{ required "orchestrator.config.pass1TopP is required when orchestrator.modelType=qwen_reasoning" .Values.orchestrator.config.pass1TopP | quote }}
+            - name: PASS1_TOP_K
+              value: {{ required "orchestrator.config.pass1TopK is required when orchestrator.modelType=qwen_reasoning" .Values.orchestrator.config.pass1TopK | quote }}
+            - name: PASS1_PRESENCE_PENALTY
+              value: {{ required "orchestrator.config.pass1PresencePenalty is required when orchestrator.modelType=qwen_reasoning" .Values.orchestrator.config.pass1PresencePenalty | quote }}
+            - name: PASS1_REPETITION_PENALTY
+              value: {{ required "orchestrator.config.pass1RepetitionPenalty is required when orchestrator.modelType=qwen_reasoning" .Values.orchestrator.config.pass1RepetitionPenalty | quote }}
+            {{- if .Values.orchestrator.config.pass1MaxTokens }}
+            - name: PASS1_MAX_TOKENS
+              value: {{ .Values.orchestrator.config.pass1MaxTokens | quote }}
+            {{- end }}
+            {{- if .Values.orchestrator.config.pass1ThinkingTokenBudget }}
+            - name: PASS1_THINKING_TOKEN_BUDGET
+              value: {{ .Values.orchestrator.config.pass1ThinkingTokenBudget | quote }}
+            {{- end }}
+            {{- if ne .Values.orchestrator.config.pass1ReasoningEffort "" }}
+            - name: PASS1_REASONING_EFFORT
+              value: {{ .Values.orchestrator.config.pass1ReasoningEffort | quote }}
+            {{- end }}
+            - name: PASS1_PRESERVE_THINKING
+              value: {{ required "orchestrator.config.pass1PreserveThinking is required when orchestrator.modelType=qwen_reasoning" .Values.orchestrator.config.pass1PreserveThinking | quote }}
+            {{- end }}
+            {{- if or (eq $modelType "gpt_oss") (eq $modelType "gemma4") }}
+            - name: SINGLE_PASS_PROMPT_VERSION
+              value: {{ required "orchestrator.config.singlePassPromptVersion is required when orchestrator.modelType is gpt_oss or gemma4" .Values.orchestrator.config.singlePassPromptVersion | quote }}
+            - name: SINGLE_PASS_SYSTEM_PROMPT
+              value: |-
+{{ required "orchestrator.config.singlePassSystemPrompt is required when orchestrator.modelType is gpt_oss or gemma4" .Values.orchestrator.config.singlePassSystemPrompt | nindent 16 }}
+            - name: SINGLE_PASS_USER_PROMPT_TEMPLATE
+              value: |-
+{{ required "orchestrator.config.singlePassUserPromptTemplate is required when orchestrator.modelType is gpt_oss or gemma4" .Values.orchestrator.config.singlePassUserPromptTemplate | nindent 16 }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.orchestrator.service.port }}
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            {{- toYaml .Values.orchestrator.resources | nindent 12 }}
+{{- end }}

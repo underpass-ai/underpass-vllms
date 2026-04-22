@@ -1,0 +1,160 @@
+cache:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  size: 120Gi
+  accessMode: ReadWriteOnce
+  mountPath: /tmp/hf-cache
+  emptyDirSizeLimit: 20Gi
+
+reasoning:
+  enabled: false
+
+structured:
+  enabled: true
+  imagePullSecrets: []
+  image:
+    repository: docker.io/vllm/vllm-openai
+    tag: v0.19.1-x86_64-cu130
+    pullPolicy: IfNotPresent
+  model: openai/gpt-oss-120b
+  tensorParallelSize: 4
+  maxModelLen: 16384
+  maxNumSeqs: 1
+  gpuMemoryUtilization: 0.9
+  enforceEager: false
+  extraArgs:
+    - --language-model-only
+  env:
+    HF_HOME: /tmp/hf-cache
+    LD_LIBRARY_PATH: /usr/lib
+  huggingface:
+    tokenSecret: huggingface-token
+    tokenKey: HF_TOKEN
+  shmSizeLimit: 2Gi
+  resources:
+    requests:
+      cpu: "16"
+      memory: 96Gi
+      nvidia.com/gpu: "4"
+    limits:
+      cpu: "32"
+      memory: 160Gi
+      nvidia.com/gpu: "4"
+  probes:
+    startup:
+      periodSeconds: 10
+      failureThreshold: 180
+    readiness:
+      periodSeconds: 10
+      failureThreshold: 3
+    liveness:
+      periodSeconds: 30
+      failureThreshold: 3
+  service:
+    type: ClusterIP
+    port: 8000
+  ingress:
+    enabled: false
+    className: ""
+    host: ""
+    tls:
+      enabled: false
+      secretName: ""
+      clusterIssuer: ""
+    mtls:
+      enabled: false
+      clientCaSecret: ""
+
+orchestrator:
+  enabled: true
+  replicaCount: 1
+  imagePullSecrets:
+    - ghcr-pull-secret
+  image:
+    repository: ghcr.io/tgarciai/underpass-vllms
+    tag: 20260421-gptoss-diag
+    pullPolicy: IfNotPresent
+  addr: :8080
+  modelType: gpt_oss
+  pass1:
+    provider: ""
+    baseURL: ""
+    model: ""
+    apiKey: ""
+  pass2:
+    provider: openai_chat_completions
+    baseURL: http://underpass-llm-gpt-oss-120b-structured.underpass-runtime.svc.cluster.local:8000/v1
+    model: openai/gpt-oss-120b
+    apiKey: EMPTY
+  config:
+    maxIntermediateBytes: 65536
+    pass2RetryCount: 1
+    pass1PromptVersion: ""
+    pass2PromptVersion: ""
+    singlePassPromptVersion: 2026-04-21.1
+    irVersion: 1.0.0
+    pass1SystemPrompt: ""
+    pass2SystemPrompt: ""
+    singlePassSystemPrompt: |-
+      You are a strict JSON extraction engine running on GPT-OSS. Follow the developer instructions exactly. Return only valid JSON that matches the provided schema. Do not add fields. Do not invent values. If a value is missing from the input, omit it only if the schema allows it; otherwise use null when permitted. Keep any internal reasoning out of the final JSON.
+    pass1UserPromptTemplate: ""
+    pass2UserPromptTemplate: ""
+    singlePassUserPromptTemplate: |-
+      Convert the following input into the target schema.
+
+      Rules:
+      - Use only facts explicitly present in the input.
+      - Do not hallucinate.
+      - Preserve literal values when possible.
+      - Output exactly one JSON value that matches the target schema.
+
+      Target JSON schema:
+      {{schema}}
+
+      Input:
+      {{input}}
+    pass2RetryHintTemplate: |-
+      Previous attempt failed validation. Correct the output using this feedback:
+      {{hint}}
+    pass1Temperature: ""
+    pass1TopP: ""
+    pass1TopK: ""
+    pass1PresencePenalty: ""
+    pass1RepetitionPenalty: ""
+    pass2Temperature: "0.2"
+    pass2TopP: "1"
+    pass2TopK: ""
+    pass2PresencePenalty: "0"
+    pass2RepetitionPenalty: ""
+    pass1MaxTokens: 0
+    pass2MaxTokens: 16384
+    pass1ThinkingTokenBudget: 0
+    pass2ThinkingTokenBudget: 0
+    pass1ReasoningEffort: ""
+    pass2ReasoningEffort: high
+    pass1PreserveThinking: ""
+    pass2PreserveThinking: ""
+    pass1Timeout: ""
+    pass2Timeout: 900s
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: false
+    className: ""
+    host: ""
+    tls:
+      enabled: false
+      secretName: ""
+      clusterIssuer: ""
+    mtls:
+      enabled: false
+      clientCaSecret: ""

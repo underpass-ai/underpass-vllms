@@ -1,0 +1,42 @@
+{{- $root := . -}}
+{{- range $component := list "reasoning" "structured" "orchestrator" }}
+{{- $cfg := index $root.Values $component }}
+{{- if and $cfg.enabled $cfg.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "underpass-llm.componentName" (dict "root" $root "component" $component) }}
+  labels:
+    {{- include "underpass-llm.componentLabels" (dict "root" $root "component" $component) | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    nginx.ingress.kubernetes.io/proxy-body-size: "64m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    {{- if $cfg.ingress.mtls.enabled }}
+    nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
+    nginx.ingress.kubernetes.io/auth-tls-secret: {{ printf "%s/%s" $root.Release.Namespace $cfg.ingress.mtls.clientCaSecret | quote }}
+    nginx.ingress.kubernetes.io/auth-tls-verify-depth: "1"
+    {{- end }}
+spec:
+  ingressClassName: {{ $cfg.ingress.className | quote }}
+  {{- if $cfg.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ required (printf "%s.ingress.host is required when %s.ingress.enabled=true" $component $component) $cfg.ingress.host | quote }}
+      secretName: {{ required (printf "%s.ingress.tls.secretName is required when %s.ingress.tls.enabled=true" $component $component) $cfg.ingress.tls.secretName | quote }}
+  {{- end }}
+  rules:
+    - host: {{ required (printf "%s.ingress.host is required when %s.ingress.enabled=true" $component $component) $cfg.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "underpass-llm.componentName" (dict "root" $root "component" $component) }}
+                port:
+                  number: {{ $cfg.service.port }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,26 @@
+{{- if .Values.serviceMonitor.enabled }}
+{{- $root := . -}}
+{{- range $component := list "reasoning" "structured" }}
+{{- $cfg := index $root.Values $component }}
+{{- if $cfg.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "underpass-llm.componentName" (dict "root" $root "component" $component) }}
+  labels:
+    {{- include "underpass-llm.componentLabels" (dict "root" $root "component" $component) | nindent 4 }}
+    {{- with $root.Values.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "underpass-llm.componentSelectorLabels" (dict "root" $root "component" $component) | nindent 6 }}
+  endpoints:
+    - port: http
+      path: {{ $root.Values.serviceMonitor.path }}
+      interval: {{ $root.Values.serviceMonitor.interval }}
+{{- end }}
+{{- end }}
+{{- end }}

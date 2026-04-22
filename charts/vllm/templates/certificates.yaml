@@ -1,0 +1,20 @@
+{{- $root := . -}}
+{{- range $component := list "reasoning" "structured" "orchestrator" }}
+{{- $cfg := index $root.Values $component }}
+{{- if and $cfg.enabled $cfg.ingress.enabled $cfg.ingress.tls.enabled }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $cfg.ingress.tls.secretName }}
+  labels:
+    {{- include "underpass-llm.componentLabels" (dict "root" $root "component" $component) | nindent 4 }}
+spec:
+  secretName: {{ required (printf "%s.ingress.tls.secretName is required when %s.ingress.tls.enabled=true" $component $component) $cfg.ingress.tls.secretName }}
+  dnsNames:
+    - {{ required (printf "%s.ingress.host is required when %s.ingress.enabled=true" $component $component) $cfg.ingress.host | quote }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ required (printf "%s.ingress.tls.clusterIssuer is required when %s.ingress.tls.enabled=true" $component $component) $cfg.ingress.tls.clusterIssuer }}
+{{- end }}
+{{- end }}

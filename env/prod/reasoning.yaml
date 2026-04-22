@@ -1,0 +1,66 @@
+cache:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  size: 80Gi
+  accessMode: ReadWriteOnce
+  mountPath: /tmp/hf-cache
+  emptyDirSizeLimit: 20Gi
+
+reasoning:
+  enabled: true
+  imagePullSecrets: []
+  image:
+    repository: docker.io/vllm/vllm-openai
+    tag: v0.19.1-x86_64-cu130
+    pullPolicy: IfNotPresent
+  model: palmfuture/Qwen3.6-35B-A3B-GPTQ-Int4
+  tensorParallelSize: 2
+  maxModelLen: 16384
+  maxNumSeqs: 1
+  gpuMemoryUtilization: 0.92
+  enforceEager: false
+  extraArgs:
+    - --language-model-only
+    - --reasoning-parser=qwen3
+    - '--reasoning-config={"reasoning_start_str":"<think>","reasoning_end_str":"I have to give the solution based on the reasoning directly now.</think>"}'
+  env:
+    HF_HOME: /tmp/hf-cache
+    LD_LIBRARY_PATH: /usr/lib
+  huggingface:
+    tokenSecret: huggingface-token
+    tokenKey: HF_TOKEN
+  shmSizeLimit: 2Gi
+  resources:
+    requests:
+      cpu: "8"
+      memory: 48Gi
+      nvidia.com/gpu: "2"
+    limits:
+      cpu: "16"
+      memory: 64Gi
+      nvidia.com/gpu: "2"
+  probes:
+    startup:
+      periodSeconds: 10
+      failureThreshold: 180
+    readiness:
+      periodSeconds: 10
+      failureThreshold: 3
+    liveness:
+      periodSeconds: 30
+      failureThreshold: 3
+  service:
+    type: ClusterIP
+    port: 8000
+  ingress:
+    enabled: false
+    className: ""
+    host: ""
+    tls:
+      enabled: false
+      secretName: ""
+      clusterIssuer: ""
+    mtls:
+      enabled: false
+      clientCaSecret: ""

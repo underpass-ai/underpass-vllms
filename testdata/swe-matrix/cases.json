@@ -1,0 +1,500 @@
+{
+  "version": "2026-04-21.2",
+  "cases": [
+    {
+      "id": "bug-regression-triage",
+      "category": "bug_triage",
+      "description": "Regression bug with explicit repro, files, language and tests.",
+      "judge_focus": [
+        "Extrae lo explicito sin completar huecos con contexto inventado.",
+        "Recoge literalmente archivos, severidad, entorno y tests pedidos.",
+        "No convierte una sospecha en causa raiz confirmada."
+      ],
+      "failure_modes": [
+        "Inventar stacktraces, commits o servicios no citados.",
+        "Elevar la causa sospechada a hecho confirmado.",
+        "Perder alguno de los tests o archivos mencionados."
+      ],
+      "payload": {
+        "input": "After merging PR #481, the Go API crashes on login when tenant_id is missing. Repro: 1) start the api service 2) POST /v1/login without tenant_id 3) server returns 500. Expected behavior: the API should return 400 with a validation error. Actual behavior: panic nil pointer dereference. Suspect files: internal/auth/session.go and cmd/api/main.go. Environment: production. Severity: high. Add a regression test for missing tenant_id and an integration test for login validation.",
+        "schema_version": "swe-bug-v1",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": ["bug", "feature_request", "incident", "refactor", "review_task"]
+            },
+            "summary": { "type": "string" },
+            "language": { "type": ["string", "null"] },
+            "environment": { "type": ["string", "null"] },
+            "severity": { "type": ["string", "null"] },
+            "files": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "reproduction_steps": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "expected_behavior": { "type": ["string", "null"] },
+            "actual_behavior": { "type": ["string", "null"] },
+            "suspected_root_cause": { "type": ["string", "null"] },
+            "tests_to_add": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "warnings": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": [
+            "kind",
+            "summary",
+            "language",
+            "environment",
+            "severity",
+            "files",
+            "reproduction_steps",
+            "expected_behavior",
+            "actual_behavior",
+            "suspected_root_cause",
+            "tests_to_add",
+            "warnings"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "id": "feature-request-acceptance",
+      "category": "feature_request",
+      "description": "Feature request with acceptance criteria and rollout constraints.",
+      "judge_focus": [
+        "Resume bien el problema y la persona usuaria sin meter solucion tecnica no pedida.",
+        "Separa criterios de aceptacion de constraints sin mezclar ambos.",
+        "Mantiene el alcance en superficies citadas literalmente."
+      ],
+      "failure_modes": [
+        "Inventar vendors o herramientas no mencionadas.",
+        "Reescribir acceptance criteria con perdida de precision.",
+        "Meter repos, paquetes o equipos no citados."
+      ],
+      "payload": {
+        "input": "Please structure this SWE feature request. A staff engineer wants preview deployments for PRs that touch the Next.js frontend. Problem statement: reviewers cannot verify visual changes before merge. User persona: frontend reviewer. Acceptance criteria: 1) every PR against main gets an ephemeral URL 2) a GitHub bot comments the URL back on the PR 3) preview environments expire automatically after 24 hours. Constraints: reuse existing GitHub Actions, do not add a new paid vendor, support packages/web and packages/marketing. Priority: medium.",
+        "schema_version": "swe-feature-v1",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": ["bug", "feature_request", "incident", "refactor", "review_task"]
+            },
+            "summary": { "type": "string" },
+            "user_persona": { "type": ["string", "null"] },
+            "problem_statement": { "type": ["string", "null"] },
+            "acceptance_criteria": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "constraints": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "priority": { "type": ["string", "null"] },
+            "affected_surfaces": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "warnings": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": [
+            "kind",
+            "summary",
+            "user_persona",
+            "problem_statement",
+            "acceptance_criteria",
+            "constraints",
+            "priority",
+            "affected_surfaces",
+            "warnings"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "id": "incident-prod-checkout",
+      "category": "incident",
+      "description": "Production incident with impact, mitigation and next actions.",
+      "judge_focus": [
+        "Conserva impacto cliente, sintomas, mitigaciones y acciones en el orden correcto.",
+        "No confunde sospecha tecnica con confirmacion.",
+        "Mantiene el incidente centrado en produccion y checkout."
+      ],
+      "failure_modes": [
+        "Inventar metricas o duraciones no citadas.",
+        "Perder alguna mitigacion aplicada.",
+        "Degradar la gravedad del incidente o moverlo fuera de produccion."
+      ],
+      "payload": {
+        "input": "PagerDuty SEV-1. Production checkout latency is above 12 seconds and 38% of requests return 502 between 14:03 and 14:18 UTC. Symptoms are visible in edge-proxy and checkout-api. Customer impact: card payments are failing in EU checkout. Suspected cause: Redis connection pool exhaustion after deploy sha 9f3a1d. Mitigation applied: rollback checkout-api and recycle redis-sidecar. Next actions: confirm recovery, cap pool size, add saturation alert.",
+        "schema_version": "swe-incident-v1",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": ["bug", "feature_request", "incident", "refactor", "review_task"]
+            },
+            "service": { "type": ["string", "null"] },
+            "environment": { "type": ["string", "null"] },
+            "severity": { "type": ["string", "null"] },
+            "customer_impact": { "type": ["string", "null"] },
+            "symptoms": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "suspected_root_cause": { "type": ["string", "null"] },
+            "mitigations": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "next_actions": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "evidence": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "warnings": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": [
+            "kind",
+            "service",
+            "environment",
+            "severity",
+            "customer_impact",
+            "symptoms",
+            "suspected_root_cause",
+            "mitigations",
+            "next_actions",
+            "evidence",
+            "warnings"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "id": "pr-review-risk",
+      "category": "review_task",
+      "description": "PR review extraction for migration and rollout risk.",
+      "judge_focus": [
+        "Extrae bien riesgo, breaking change y orden de rollout.",
+        "Mantiene repo, PR y modulos tocados sin inventar diff inexistente.",
+        "No suaviza el riesgo cuando el texto es claramente alto."
+      ],
+      "failure_modes": [
+        "Inventar tablas, migraciones o workers adicionales.",
+        "Perder el orden lectores-migracion-writers del rollout.",
+        "Confundir riesgo alto con riesgo medio por tono resumido."
+      ],
+      "payload": {
+        "input": "Review PR #481 in repo underpass/payments. The patch adds a SQL migration that drops column legacy_status from invoices, updates internal/billing/reconciler.go, and removes fallback parsing in api/http/invoice_handler.go. Risk is high because old workers still read legacy_status. Breaking change: yes. Tests needed: migration rollback test and backward compatibility integration test. Rollout: deploy readers first, then apply migration, then deploy writers.",
+        "schema_version": "swe-review-v1",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": ["bug", "feature_request", "incident", "refactor", "review_task"]
+            },
+            "repo": { "type": ["string", "null"] },
+            "pr_number": { "type": ["integer", "null"] },
+            "risk_level": { "type": ["string", "null"] },
+            "modules_touched": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "breaking_change": { "type": ["boolean", "null"] },
+            "tests_required": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "rollout_notes": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "warnings": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": [
+            "kind",
+            "repo",
+            "pr_number",
+            "risk_level",
+            "modules_touched",
+            "breaking_change",
+            "tests_required",
+            "rollout_notes",
+            "warnings"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "id": "refactor-plan-selector",
+      "category": "refactor",
+      "description": "Refactor plan with invariants, scope and rollout flag.",
+      "judge_focus": [
+        "Respeta invariantes y no expande el scope del refactor.",
+        "Recoge riesgos y tests sin convertirlos en trabajo adicional inventado.",
+        "Mantiene la estrategia de rollout ligada al feature flag citado."
+      ],
+      "failure_modes": [
+        "Añadir ficheros fuera de scope.",
+        "Convertir un invariant en recomendacion opcional.",
+        "Inventar un rediseño mayor cuando solo se pide extraccion de logica."
+      ],
+      "payload": {
+        "input": "Create a refactor plan. Extract repository selection logic from internal/search/service.go into internal/search/repository_selector.go. Keep the public API unchanged, preserve current metrics names, and do not change ranking behavior. Scope files: internal/search/service.go, internal/search/service_test.go, internal/search/repository_selector.go. Risks: hidden coupling to context keys. Tests to update: selector unit tests and existing service golden tests. Rollout strategy: behind feature flag search_repo_selector_v2.",
+        "schema_version": "swe-refactor-v1",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": ["bug", "feature_request", "incident", "refactor", "review_task"]
+            },
+            "objective": { "type": ["string", "null"] },
+            "scope_files": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "invariants": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "risks": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "tests_to_update": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "rollout_strategy": { "type": ["string", "null"] },
+            "warnings": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": [
+            "kind",
+            "objective",
+            "scope_files",
+            "invariants",
+            "risks",
+            "tests_to_update",
+            "rollout_strategy",
+            "warnings"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "id": "underspecified-dashboard-slowness",
+      "category": "bug_triage",
+      "description": "Underspecified report to verify null handling and warnings.",
+      "judge_focus": [
+        "Perfil de humildad epistemica: usa null y arrays vacios cuando toca.",
+        "Señala falta de datos sin colapsar en output inutil.",
+        "No inventa stack, ficheros, repro ni severidad."
+      ],
+      "failure_modes": [
+        "Rellenar lenguaje, repo o archivos inexistentes.",
+        "Fabricar pasos de reproduccion plausibles.",
+        "Ocultar la falta de evidencia en warnings vacios."
+      ],
+      "payload": {
+        "input": "User report: 'the dashboard is slow after the latest deploy'. No repo, no stacktrace, no file names, no reproduction steps. The only confirmed fact is that the slowdown affects the dashboard page in production. Severity is not yet known.",
+        "schema_version": "swe-bug-v1",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": ["bug", "feature_request", "incident", "refactor", "review_task"]
+            },
+            "summary": { "type": "string" },
+            "language": { "type": ["string", "null"] },
+            "environment": { "type": ["string", "null"] },
+            "severity": { "type": ["string", "null"] },
+            "files": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "reproduction_steps": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "expected_behavior": { "type": ["string", "null"] },
+            "actual_behavior": { "type": ["string", "null"] },
+            "suspected_root_cause": { "type": ["string", "null"] },
+            "tests_to_add": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "warnings": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": [
+            "kind",
+            "summary",
+            "language",
+            "environment",
+            "severity",
+            "files",
+            "reproduction_steps",
+            "expected_behavior",
+            "actual_behavior",
+            "suspected_root_cause",
+            "tests_to_add",
+            "warnings"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "id": "conflicting-incident-evidence",
+      "category": "incident",
+      "description": "Conflicting incident notes should surface uncertainty, not fake certainty.",
+      "judge_focus": [
+        "Resuelve conflicto de evidencia sin fingir certeza.",
+        "Da mas peso a señales explicitas de prod que al rumor de staging.",
+        "Mantiene la causa raiz como incierta si el texto no decide."
+      ],
+      "failure_modes": [
+        "Elegir una hipotesis tecnica como verdad.",
+        "Ignorar las señales de produccion por una frase conversacional.",
+        "Eliminar warnings pese al conflicto evidente."
+      ],
+      "payload": {
+        "input": "Incident note. Some teammates say only staging is affected, but Grafana alert checkout_error_rate_prod shows 12% errors in prod and customers report intermittent checkout failures in prod. One hypothesis says a recent config rollout broke TLS to postgres. Another says a third-party tax API is timing out. No rollback has been done yet.",
+        "schema_version": "swe-incident-v1",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": ["bug", "feature_request", "incident", "refactor", "review_task"]
+            },
+            "service": { "type": ["string", "null"] },
+            "environment": { "type": ["string", "null"] },
+            "severity": { "type": ["string", "null"] },
+            "customer_impact": { "type": ["string", "null"] },
+            "symptoms": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "suspected_root_cause": { "type": ["string", "null"] },
+            "mitigations": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "next_actions": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "evidence": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "warnings": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": [
+            "kind",
+            "service",
+            "environment",
+            "severity",
+            "customer_impact",
+            "symptoms",
+            "suspected_root_cause",
+            "mitigations",
+            "next_actions",
+            "evidence",
+            "warnings"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "id": "java-log-connection-timeout",
+      "category": "log_analysis",
+      "description": "Stacktrace-oriented extraction from a backend error log.",
+      "judge_focus": [
+        "Distingue bien clase de error, componente y causa probable.",
+        "No mete remediation ajena al texto cuando ya hay una accion sugerida.",
+        "Marca retryable y stacktrace con disciplina binaria."
+      ],
+      "failure_modes": [
+        "Inventar un componente distinto al citado.",
+        "Confundir causa probable con solucion definitiva.",
+        "Perder la señal de que el retry ya funciono."
+      ],
+      "payload": {
+        "input": "Java stacktrace from order-worker: java.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 30000ms at com.acme.orders.persistence.OrderRepository.save(OrderRepository.java:118). Retry job succeeded on second attempt. Recommend increasing pool size and checking the long-running transaction in PaymentSyncJob.",
+        "schema_version": "swe-log-v1",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string", "enum": ["log_analysis"] },
+            "language": { "type": ["string", "null"] },
+            "component": { "type": ["string", "null"] },
+            "error_class": { "type": ["string", "null"] },
+            "probable_cause": { "type": ["string", "null"] },
+            "stacktrace_present": { "type": "boolean" },
+            "retryable": { "type": "boolean" },
+            "next_action": { "type": ["string", "null"] },
+            "warnings": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": [
+            "kind",
+            "language",
+            "component",
+            "error_class",
+            "probable_cause",
+            "stacktrace_present",
+            "retryable",
+            "next_action",
+            "warnings"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

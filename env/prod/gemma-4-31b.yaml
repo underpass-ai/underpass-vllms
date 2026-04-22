@@ -1,0 +1,161 @@
+cache:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  size: 160Gi
+  accessMode: ReadWriteOnce
+  mountPath: /tmp/hf-cache
+  emptyDirSizeLimit: 20Gi
+
+reasoning:
+  enabled: false
+
+structured:
+  enabled: true
+  imagePullSecrets: []
+  image:
+    repository: docker.io/vllm/vllm-openai
+    tag: gemma4-cu130
+    pullPolicy: IfNotPresent
+  model: google/gemma-4-31B-it
+  tensorParallelSize: 4
+  maxModelLen: 32768
+  maxNumSeqs: 1
+  gpuMemoryUtilization: 0.9
+  enforceEager: false
+  extraArgs:
+    - --reasoning-parser=gemma4
+    - --limit-mm-per-prompt={"image":0,"audio":0}
+  env:
+    HF_HOME: /tmp/hf-cache
+    LD_LIBRARY_PATH: /usr/lib
+  huggingface:
+    tokenSecret: huggingface-token
+    tokenKey: HF_TOKEN
+  shmSizeLimit: 8Gi
+  resources:
+    requests:
+      cpu: "16"
+      memory: 96Gi
+      nvidia.com/gpu: "4"
+    limits:
+      cpu: "32"
+      memory: 128Gi
+      nvidia.com/gpu: "4"
+  probes:
+    startup:
+      periodSeconds: 10
+      failureThreshold: 240
+    readiness:
+      periodSeconds: 10
+      failureThreshold: 3
+    liveness:
+      periodSeconds: 30
+      failureThreshold: 3
+  service:
+    type: ClusterIP
+    port: 8000
+  ingress:
+    enabled: false
+    className: ""
+    host: ""
+    tls:
+      enabled: false
+      secretName: ""
+      clusterIssuer: ""
+    mtls:
+      enabled: false
+      clientCaSecret: ""
+
+orchestrator:
+  enabled: true
+  replicaCount: 1
+  imagePullSecrets:
+    - ghcr-pull-secret
+  image:
+    repository: registry.underpassai.com/underpass-vllms
+    tag: 20260422-singlepass-contract
+    pullPolicy: IfNotPresent
+  addr: :8080
+  modelType: gemma4
+  pass1:
+    provider: ""
+    baseURL: ""
+    model: ""
+    apiKey: ""
+  pass2:
+    provider: vllm_chat_completions
+    baseURL: http://underpass-llm-gemma-4-31b-structured.underpass-runtime.svc.cluster.local:8000/v1
+    model: google/gemma-4-31B-it
+    apiKey: EMPTY
+  config:
+    maxIntermediateBytes: 65536
+    pass2RetryCount: 1
+    pass1PromptVersion: ""
+    pass2PromptVersion: ""
+    singlePassPromptVersion: 2026-04-21.1
+    irVersion: 1.0.0
+    pass1SystemPrompt: ""
+    pass2SystemPrompt: ""
+    singlePassSystemPrompt: |-
+      You are a strict JSON extraction engine running on Gemma 4. Think if helpful, but keep reasoning out of the final answer. Return only valid JSON matching the target schema. Do not add fields. Do not invent values. Use only facts explicitly present in the input.
+    pass1UserPromptTemplate: ""
+    pass2UserPromptTemplate: ""
+    singlePassUserPromptTemplate: |-
+      Convert the following input into the target schema.
+
+      Rules:
+      - Use only facts explicitly present in the input.
+      - Do not hallucinate.
+      - Preserve literal values when possible.
+      - Output exactly one JSON value that matches the target schema.
+
+      Target JSON schema:
+      {{schema}}
+
+      Input:
+      {{input}}
+    pass2RetryHintTemplate: |-
+      Previous attempt failed validation. Correct the output using this feedback:
+      {{hint}}
+    pass1Temperature: ""
+    pass1TopP: ""
+    pass1TopK: ""
+    pass1PresencePenalty: ""
+    pass1RepetitionPenalty: ""
+    pass2Temperature: "0.2"
+    pass2TopP: "1"
+    pass2TopK: ""
+    pass2PresencePenalty: "0"
+    pass2RepetitionPenalty: ""
+    pass1MaxTokens: 0
+    pass2MaxTokens: 4096
+    pass1ThinkingTokenBudget: 0
+    pass2ThinkingTokenBudget: 0
+    pass1ReasoningEffort: ""
+    pass2ReasoningEffort: ""
+    pass1PreserveThinking: ""
+    pass2PreserveThinking: ""
+    pass1Timeout: ""
+    pass2Timeout: 90s
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: false
+    className: ""
+    host: ""
+    tls:
+      enabled: false
+      secretName: ""
+      clusterIssuer: ""
+    mtls:
+      enabled: false
+      clientCaSecret: ""
