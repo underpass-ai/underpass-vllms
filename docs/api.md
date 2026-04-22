@@ -6,7 +6,9 @@
 | --- | --- | --- |
 | `GET` | `/healthz` | health check |
 | `GET` | `/readyz` | readiness check |
-| `POST` | `/v1/two-pass/structured` | ejecución completa de dos pasos |
+| `POST` | `/v1/two-pass/structured` | ejecucion estructurada completa en `two_pass` o `single_pass` |
+
+La ruta mantiene el nombre `two-pass` por compatibilidad historica. El modo real de ejecucion se expone en `metadata.execution_mode`.
 
 ## Request Body
 

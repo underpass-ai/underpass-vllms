@@ -73,9 +73,10 @@ Documentacion y values:
 
 Estado:
 
-- configuracion preparada
-- no documentada como bateria completa en este repo todavia
-- candidata natural para comparar contra `26B-A4B-it`
+- desplegada
+- smoke test correcto
+- bateria SWE ejecutada
+- usable, pero no recomendada por delante de `26B-A4B-it`
 
 ## Versiones base
 

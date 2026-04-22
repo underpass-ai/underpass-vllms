@@ -87,8 +87,11 @@ La release quedo sana en cluster:
 
 Run principal:
 
-- [tmp/swe-matrix/20260421T221011Z/REPORT.md](../tmp/swe-matrix/20260421T221011Z/REPORT.md)
-- [tmp/swe-matrix/20260421T221011Z/JUDGMENT.md](../tmp/swe-matrix/20260421T221011Z/JUDGMENT.md)
+- `20260421T221011Z`
+
+Nota:
+
+- los artefactos crudos de esta bateria se generaron en `tmp/swe-matrix/20260421T221011Z/`, pero `tmp/` no forma parte del repo versionado
 
 Resultado:
 
@@ -113,3 +116,8 @@ Decision sugerida:
 - `default premium`: no
 - `mejor Gemma practica en este repo`: si
 - `casos ambiguos/conflictivos`: mejor revisarlos con mas cautela o compararlos contra `gpt-oss-120b`
+
+Comparativa directa dentro de la familia:
+
+- `Gemma 4 31B-it` fue mas lento y no mejoro de forma clara la calidad
+- por eso `26B-A4B-it` sigue siendo el punto dulce practico del repo

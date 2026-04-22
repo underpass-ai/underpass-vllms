@@ -2,13 +2,16 @@
 
 ## Alcance
 
-Este repositorio despliega tres roles lógicos:
+Este repositorio despliega tres roles logicos:
 
 - `reasoning`: endpoint vLLM para extracción semántica.
 - `structured`: endpoint vLLM para canonicalización JSON.
 - `orchestrator`: servicio HTTP en Go que coordina los dos pasos.
 
-El chart es único, pero la operación del proyecto asume una release por servicio.
+El chart es unico, pero la operacion real del proyecto admite dos patrones:
+
+- `two_pass` por componente: tres releases separadas
+- `single_pass` por perfil de modelo: una release con `structured + orchestrator`
 
 ## Requisitos mínimos
 
@@ -23,7 +26,9 @@ El chart es único, pero la operación del proyecto asume una release por servic
 
 La documentación no fija hardware concreto. CPU, memoria, GPU y storage se declaran en cada values file.
 
-## Modelo de releases
+## Modelos de release
+
+### Patron `two_pass`
 
 Usa una release distinta por servicio:
 
@@ -33,9 +38,26 @@ Usa una release distinta por servicio:
 
 Los targets `make` ya vienen preparados para ese modelo y fuerzan por `--set` que solo quede activo el componente correspondiente.
 
+### Patron `single_pass`
+
+Usa una unica release por perfil de modelo. Ejemplos que ya se han usado en este repo:
+
+- `underpass-llm-gemma-4-26b-a4b`
+- `underpass-llm-gemma-4-31b`
+- `underpass-llm-gpt-oss-120b`
+
+En este patron:
+
+- `reasoning.enabled=false`
+- `structured.enabled=true`
+- `orchestrator.enabled=true`
+- `orchestrator.modelType` decide el adapter (`gemma4` o `gpt_oss`)
+
 ## Nombres de recursos
 
-Con la convención anterior, los nombres renderizados quedan así:
+### Patron `two_pass`
+
+Con la convencion anterior, los nombres renderizados quedan asi:
 
 - release `underpass-llm-reasoning`:
   - Deployment/Service/Ingress/ServiceMonitor: `underpass-llm-reasoning-reasoning`
@@ -46,9 +68,25 @@ Con la convención anterior, los nombres renderizados quedan así:
 - release `underpass-llm-orchestrator`:
   - Deployment/Service/Ingress: `underpass-llm-orchestrator-orchestrator`
 
+### Patron `single_pass`
+
+Con una release empaquetada, los nombres quedan por componente activo dentro de la misma release.
+
+Ejemplo real:
+
+- release `underpass-llm-gemma-4-31b`:
+  - Deployment/Service `structured`: `underpass-llm-gemma-4-31b-structured`
+  - Deployment/Service `orchestrator`: `underpass-llm-gemma-4-31b-orchestrator`
+  - PVC de cache si lo crea el chart: `underpass-llm-gemma-4-31b-hf-cache`
+
 ## Workflow exacto
 
-### 1. Crear un values file por servicio
+### 1. Elegir el patron de despliegue
+
+- usa `two_pass` si el modelo necesita `reasoning` separado
+- usa `single_pass` si el modelo devuelve JSON estructurado en una sola llamada
+
+### 2. Crear un values file por release
 
 No reutilices `charts/vllm/values.yaml` como fichero de entorno. Crea un values file propio para cada release.
 
@@ -56,13 +94,13 @@ Referencias:
 
 - [docs/values-reference.md](values-reference.md)
 
-### 2. Validar el values file
+### 3. Validar el values file
 
 ```bash
 make helm-lint-values VALUES=env/prod/reasoning.yaml
 ```
 
-### 3. Renderizar antes de instalar
+### 4. Renderizar antes de instalar
 
 ```bash
 make helm-template-reasoning NAMESPACE=underpass-runtime VALUES=env/prod/reasoning.yaml
@@ -70,7 +108,13 @@ make helm-template-structured NAMESPACE=underpass-runtime VALUES=env/prod/struct
 make helm-template-orchestrator NAMESPACE=underpass-runtime VALUES=env/prod/orchestrator.yaml
 ```
 
-### 4. Instalar o actualizar
+Para una release `single_pass`, usa `helm template` directamente sobre el values file del perfil:
+
+```bash
+helm template underpass-llm-gemma-4-31b charts/vllm -n underpass-runtime -f env/prod/gemma-4-31b.yaml
+```
+
+### 5. Instalar o actualizar
 
 ```bash
 make helm-upgrade-reasoning NAMESPACE=underpass-runtime VALUES=env/prod/reasoning.yaml
@@ -78,7 +122,15 @@ make helm-upgrade-structured NAMESPACE=underpass-runtime VALUES=env/prod/structu
 make helm-upgrade-orchestrator NAMESPACE=underpass-runtime VALUES=env/prod/orchestrator.yaml
 ```
 
-### 5. Desinstalar
+Para una release `single_pass`, usa:
+
+```bash
+helm upgrade --install underpass-llm-gemma-4-31b charts/vllm \
+  -n underpass-runtime \
+  -f env/prod/gemma-4-31b.yaml
+```
+
+### 6. Desinstalar
 
 ```bash
 make helm-uninstall-reasoning NAMESPACE=underpass-runtime
@@ -86,7 +138,13 @@ make helm-uninstall-structured NAMESPACE=underpass-runtime
 make helm-uninstall-orchestrator NAMESPACE=underpass-runtime
 ```
 
-## Qué renderiza cada componente
+Para una release `single_pass`:
+
+```bash
+helm uninstall underpass-llm-gemma-4-31b -n underpass-runtime
+```
+
+## Que renderiza cada componente
 
 ### `reasoning`
 
@@ -124,11 +182,11 @@ Cuando `orchestrator.enabled=true`, el chart puede renderizar:
 
 El chart no crea `ServiceMonitor` para `orchestrator`.
 
-## Semántica operativa de `reasoning` y `structured`
+## Semantica operativa de `reasoning` y `structured`
 
 El chart no diferencia automáticamente ambos roles a nivel de flags de vLLM. Esa distinción la defines tú con `extraArgs`.
 
-Convención del proyecto:
+Convencion del proyecto:
 
 - `reasoning.extraArgs` debe incluir al menos:
   - `--language-model-only`
@@ -142,6 +200,8 @@ No metas reasoning parser en `structured`.
 El segundo flag contiene `:` dentro del JSON. En YAML debe ir entre comillas simples para que siga siendo un string único.
 
 `structured_outputs` no se configura en el chart de vLLM. Lo envía el orquestador por petición a Pass 2.
+
+Para `gemma4`, `structured` puede ir en `single_pass` con `--reasoning-parser=gemma4` y sin componente `reasoning` separado. En ese perfil, la canonicalizacion JSON la hace la unica llamada del backend estructurado y la validacion final queda en el orquestador.
 
 ## TLS
 
@@ -221,3 +281,9 @@ http://two-pass-server.default.svc.cluster.local:8080
 ```
 
 Antes de usarlo en un entorno real, ajusta `TWO_PASS_SERVER_URL` al `Service` o `Ingress` real del orquestador desplegado.
+
+## Estado documentado hoy
+
+- perfil `two_pass` de referencia: `env/prod/reasoning.yaml`, `env/prod/structured.yaml`, `env/prod/orchestrator.yaml`
+- perfil `single_pass` activo de laboratorio: `env/prod/gemma-4-31b.yaml`
+- contrato HTTP actual: [docs/api.md](api.md)

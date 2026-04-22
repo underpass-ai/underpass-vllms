@@ -93,7 +93,11 @@ Metricas de esa prueba:
 
 Run:
 
-- [tmp/swe-matrix/20260421T223752Z/REPORT.md](../tmp/swe-matrix/20260421T223752Z/REPORT.md)
+- `20260421T223752Z`
+
+Nota:
+
+- los artefactos crudos se generaron en `tmp/swe-matrix/20260421T223752Z/`, pero `tmp/` no forma parte del repo versionado
 
 Resultado:
 
@@ -124,3 +128,8 @@ Conclusion practica:
 - `smoke test`: correcto
 - `benchmark SWE`: no apto todavia
 - `siguiente paso`: mas tuning de timeouts o de presupuestos de thinking antes de volver a compararlo con `Gemma` y `gpt-oss-120b`
+
+Estado recomendado en este repo:
+
+- conservar el values file como referencia de tuning
+- no usarlo como perfil operativo por defecto

@@ -1,14 +1,21 @@
 # underpass-vllms
 
-`underpass-vllms` contiene el stack de dos pasos para structured output en Underpass AI:
+`underpass-vllms` contiene el stack de structured output de Underpass AI.
 
-- un endpoint `reasoning` servido con vLLM,
-- un endpoint `structured` servido con vLLM,
-- un orquestador en Go que llama a ambos endpoints y valida el JSON final.
+Soporta dos perfiles de ejecucion:
+
+- `two_pass`: `reasoning` + `structured` + `orchestrator`
+- `single_pass`: `structured` + `orchestrator`
+
+Los perfiles hoy soportados en el orquestador son:
+
+- `qwen_reasoning` -> `two_pass`
+- `gpt_oss` -> `single_pass`
+- `gemma4` -> `single_pass`
 
 ## Qué hay en el repo
 
-- [charts/vllm](charts/vllm): chart Helm único para desplegar `reasoning`, `structured` y `orchestrator`.
+- [charts/vllm](charts/vllm): chart Helm unico para desplegar `reasoning`, `structured` y `orchestrator`.
 - [cmd/two-pass-server](cmd/two-pass-server): binario principal del orquestador.
 - [deploy/kubernetes/e2e-job.yaml](deploy/kubernetes/e2e-job.yaml): job e2e contra el orquestador.
 - [Makefile](Makefile): entrada operativa para desplegar cada servicio por separado.
@@ -28,15 +35,19 @@
 11. [docs/qwen-thinking-integration-plan.md](docs/qwen-thinking-integration-plan.md)
 12. [docs/qwen-thinking-execution-checklist.md](docs/qwen-thinking-execution-checklist.md)
 
-## Convención de despliegue
+## Convencion de despliegue
 
-La convención del proyecto es desplegar un servicio por release Helm:
+Hay dos patrones validos:
 
-- `reasoning`
-- `structured`
-- `orchestrator`
+1. `two_pass` separado por componente:
+   - una release para `reasoning`
+   - una release para `structured`
+   - una release para `orchestrator`
+2. `single_pass` empaquetado por perfil de modelo:
+   - una release con `structured + orchestrator`
+   - `reasoning` desactivado
 
-Los targets `make` fuerzan esa separación:
+Los targets `make` cubren bien el primer caso:
 
 ```bash
 make helm-upgrade-reasoning NAMESPACE=<namespace> VALUES=<values-file>
@@ -44,17 +55,40 @@ make helm-upgrade-structured NAMESPACE=<namespace> VALUES=<values-file>
 make helm-upgrade-orchestrator NAMESPACE=<namespace> VALUES=<values-file>
 ```
 
-No uses `charts/vllm/values.yaml` como values de entorno. Ese archivo es la base del chart, no una configuración de despliegue cerrada.
+Para el segundo caso, usa `helm upgrade --install <release> charts/vllm -f <values-file>` con `reasoning.enabled=false`.
+
+No uses `charts/vllm/values.yaml` como values de entorno. Ese archivo es la base del chart, no una configuracion de despliegue cerrada.
 
 ## Flujo funcional
 
-1. `reasoning` recibe la entrada y produce una representación intermedia.
-2. `structured` transforma esa representación en JSON estricto.
-3. `orchestrator` valida el JSON contra el schema recibido en la petición.
+### `two_pass`
 
-La diferencia entre `reasoning` y `structured` no la “adivina” el chart. Debes declarar explícitamente las flags de vLLM adecuadas en `extraArgs`.
+1. `reasoning` recibe la entrada y produce una representacion intermedia.
+2. `structured` transforma esa representacion en JSON estricto.
+3. `orchestrator` valida el JSON contra el schema recibido en la peticion.
 
-## Validación rápida
+### `single_pass`
+
+1. `structured` recibe la entrada original y el schema.
+2. `orchestrator` pide una sola salida JSON y la valida contra el schema.
+
+La ruta HTTP sigue siendo `/v1/two-pass/structured` por compatibilidad historica, pero la metadata de respuesta expone el `execution_mode` real.
+
+La diferencia entre `reasoning` y `structured` no la adivina el chart. Debes declarar explicitamente las flags de vLLM adecuadas en `extraArgs`.
+
+## Superficie API
+
+- API publica del orquestador: custom, documentada en [docs/api.md](docs/api.md)
+- APIs upstream de inferencia: OpenAI-compatible (`/v1/chat/completions`)
+
+## Estado recomendado del laboratorio
+
+- `default rapido`: [docs/gemma-4-26b-a4b.md](docs/gemma-4-26b-a4b.md)
+- `default premium`: [docs/gpt-oss-120b.md](docs/gpt-oss-120b.md)
+- `comparador Gemma mas grande`: [docs/gemma-4-31b.md](docs/gemma-4-31b.md)
+- `two_pass` de referencia para Qwen/Qwopus: [docs/qwen-thinking-integration-plan.md](docs/qwen-thinking-integration-plan.md), [docs/qwopus3.5-27b.md](docs/qwopus3.5-27b.md)
+
+## Validacion rapida
 
 ```bash
 make helm-lint-values VALUES=<values-file>
