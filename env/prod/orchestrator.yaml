@@ -29,7 +29,7 @@ orchestrator:
     - ghcr-pull-secret
   image:
     repository: ghcr.io/tgarciai/underpass-vllms
-    tag: 20260421-qwen-modeltype
+    tag: 20260422-openai-chat-compat
     pullPolicy: IfNotPresent
   addr: :8080
   modelType: qwen_reasoning

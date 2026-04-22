@@ -78,7 +78,9 @@ La diferencia entre `reasoning` y `structured` no la adivina el chart. Debes dec
 
 ## Superficie API
 
-- API publica del orquestador: custom, documentada en [docs/api.md](docs/api.md)
+- API publica del orquestador:
+  - custom en `/v1/two-pass/structured`
+  - OpenAI-compatible en `/v1/chat/completions` y `/v1/models`
 - APIs upstream de inferencia: OpenAI-compatible (`/v1/chat/completions`)
 
 ## Estado recomendado del laboratorio

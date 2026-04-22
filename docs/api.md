@@ -6,9 +6,21 @@
 | --- | --- | --- |
 | `GET` | `/healthz` | health check |
 | `GET` | `/readyz` | readiness check |
+| `GET` | `/v1/models` | lista OpenAI-compatible de modelos expuestos por el orquestador |
+| `GET` | `/v1/models/{id}` | detalle OpenAI-compatible del modelo expuesto |
+| `POST` | `/v1/chat/completions` | fachada OpenAI-compatible sobre el mismo caso de uso |
 | `POST` | `/v1/two-pass/structured` | ejecucion estructurada completa en `two_pass` o `single_pass` |
 
 La ruta mantiene el nombre `two-pass` por compatibilidad historica. El modo real de ejecucion se expone en `metadata.execution_mode`.
+
+La compatibilidad OpenAI esta centrada en structured extraction:
+
+- `messages`
+- `model`
+- `response_format`
+- `POST /v1/chat/completions`
+
+No intenta replicar toda la plataforma OpenAI. La parte util aqui es mapear clientes de `chat.completions` al mismo orquestador sin forzarles a consumir la API custom.
 
 ## Request Body
 
@@ -231,6 +243,119 @@ curl -s http://localhost:8080/v1/two-pass/structured \
       "reasoning_present": false,
       "used_reasoning_fallback": false,
       "truncated": false
+    }
+  }
+}
+```
+
+## OpenAI-Compatible Chat Completions
+
+### Request soportada
+
+`POST /v1/chat/completions` acepta un subconjunto util del contrato OpenAI:
+
+- `model`
+- `messages`
+- `response_format`
+- `temperature`
+- `top_p`
+- `presence_penalty`
+- `max_completion_tokens`
+- `max_tokens`
+- `reasoning_effort`
+- `n` solo con valor `1`
+- `stream=false`
+
+### Restricciones intencionales
+
+- no hay streaming
+- no hay tools
+- no hay tool calls
+- no hay audio
+- el caso de uso principal es `response_format.type=json_schema`
+- `json_object` tambien se acepta con un schema permisivo
+
+### Mapeo interno
+
+- el transcript de `messages` se aplana a `input`
+- `response_format` aporta el `schema`
+- `model` se propaga como override a `pass1`, `pass2` y `single_pass`
+- la respuesta final se devuelve como `choices[0].message.content`, con el JSON serializado como string
+
+### Example Request
+
+```bash
+curl -s http://localhost:8080/v1/chat/completions \
+  -H 'content-type: application/json' \
+  -d '{
+    "model": "google/gemma-4-31B-it",
+    "messages": [
+      {
+        "role": "developer",
+        "content": "Extract data strictly and return only valid JSON."
+      },
+      {
+        "role": "user",
+        "content": "Invoice INV-2026-0017 from ACME Logistics. Total 1540.25 EUR."
+      }
+    ],
+    "response_format": {
+      "type": "json_schema",
+      "json_schema": {
+        "name": "invoice_v1",
+        "strict": true,
+        "schema": {
+          "type": "object",
+          "properties": {
+            "invoice_number": { "type": "string" },
+            "currency": { "type": "string" }
+          },
+          "required": ["invoice_number", "currency"],
+          "additionalProperties": false
+        }
+      }
+    }
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "id": "chatcmpl-75e81d175a16f2a1",
+  "object": "chat.completion",
+  "created": 1760000000,
+  "model": "google/gemma-4-31B-it",
+  "request_id": "75e81d175a16f2a1",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"invoice_number\":\"INV-2026-0017\",\"currency\":\"EUR\"}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 170,
+    "completion_tokens": 7,
+    "total_tokens": 177
+  },
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "invoice_v1",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "invoice_number": { "type": "string" },
+          "currency": { "type": "string" }
+        },
+        "required": ["invoice_number", "currency"],
+        "additionalProperties": false
+      }
     }
   }
 }

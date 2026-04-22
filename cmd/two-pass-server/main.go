@@ -67,7 +67,7 @@ func main() {
 	}
 
 	service := twopassapp.NewService(executor)
-	handler := httpapi.NewHandler(service)
+	handler := httpapi.NewHandler(service, httpapi.WithPublicModel(resolvePublicModel(settings)))
 
 	srv := &http.Server{
 		Addr:              settings.Addr,
@@ -103,4 +103,14 @@ func mapReasoningEffort(value *string) *domain.ReasoningEffort {
 	}
 	mapped := domain.ReasoningEffort(*value)
 	return &mapped
+}
+
+func resolvePublicModel(settings config.Settings) string {
+	if settings.Pass2.Model != "" {
+		return settings.Pass2.Model
+	}
+	if settings.Pass1.Model != "" {
+		return settings.Pass1.Model
+	}
+	return "underpass-orchestrator"
 }
