@@ -7,6 +7,19 @@ cache:
   mountPath: /tmp/hf-cache
   emptyDirSizeLimit: 20Gi
 
+dns:
+  route53:
+    enabled: true
+    target: 192.168.1.241
+    ttl: 300
+
+serviceMonitor:
+  enabled: true
+  labels:
+    release: kube-prometheus-stack
+  interval: 30s
+  path: /metrics
+
 reasoning:
   enabled: false
 
@@ -56,16 +69,16 @@ structured:
     type: ClusterIP
     port: 8000
   ingress:
-    enabled: false
-    className: ""
-    host: ""
+    enabled: true
+    className: nginx
+    host: vllm.underpassai.com
     tls:
-      enabled: false
-      secretName: ""
-      clusterIssuer: ""
+      enabled: true
+      secretName: underpass-llm-gemma-4-31b-vllm-tls
+      clusterIssuer: letsencrypt-prod-r53
     mtls:
-      enabled: false
-      clientCaSecret: ""
+      enabled: true
+      clientCaSecret: underpass-demo-client-tls
 
 orchestrator:
   enabled: true

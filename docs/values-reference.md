@@ -477,7 +477,7 @@ dns:
 serviceMonitor:
   enabled: true
   labels:
-    release: prometheus
+    release: kube-prometheus-stack
   interval: 30s
   path: /metrics
 ```

@@ -7,6 +7,13 @@ cache:
   mountPath: /tmp/hf-cache
   emptyDirSizeLimit: 20Gi
 
+serviceMonitor:
+  enabled: true
+  labels:
+    release: kube-prometheus-stack
+  interval: 30s
+  path: /metrics
+
 structured:
   enabled: true
   imagePullSecrets: []

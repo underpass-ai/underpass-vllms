@@ -280,6 +280,10 @@ Campos usados:
 - `serviceMonitor.interval`
 - `serviceMonitor.path`
 
+En este cluster, la etiqueta que usa Prometheus Operator para descubrir `ServiceMonitor` es:
+
+- `serviceMonitor.labels.release=kube-prometheus-stack`
+
 ## E2E del orquestador
 
 El job [deploy/kubernetes/e2e-job.yaml](../deploy/kubernetes/e2e-job.yaml) valida:
