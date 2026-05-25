@@ -96,7 +96,7 @@ Estado operativo:
 
 Documentacion de despliegue:
 
-- [docs/qwopus3.5-27b.md](qwopus3.5-27b.md)
+- [docs/archive/qwopus3.5-27b.md](archive/qwopus3.5-27b.md)
 
 Run principal:
 

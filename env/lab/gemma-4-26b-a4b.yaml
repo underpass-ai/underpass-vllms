@@ -2,10 +2,17 @@ cache:
   enabled: true
   existingClaim: ""
   storageClass: ""
-  size: 120Gi
+  size: 160Gi
   accessMode: ReadWriteOnce
   mountPath: /tmp/hf-cache
   emptyDirSizeLimit: 20Gi
+
+serviceMonitor:
+  enabled: true
+  labels:
+    release: kube-prometheus-stack
+  interval: 30s
+  path: /metrics
 
 reasoning:
   enabled: false
@@ -15,23 +22,24 @@ structured:
   imagePullSecrets: []
   image:
     repository: docker.io/vllm/vllm-openai
-    tag: v0.19.1-x86_64-cu130
+    tag: gemma4-cu130
     pullPolicy: IfNotPresent
-  model: openai/gpt-oss-120b
+  model: google/gemma-4-26B-A4B-it
   tensorParallelSize: 4
   maxModelLen: 16384
   maxNumSeqs: 1
   gpuMemoryUtilization: 0.9
   enforceEager: false
   extraArgs:
-    - --language-model-only
+    - --reasoning-parser=gemma4
+    - --limit-mm-per-prompt={"image":0,"audio":0}
   env:
     HF_HOME: /tmp/hf-cache
     LD_LIBRARY_PATH: /usr/lib
   huggingface:
     tokenSecret: huggingface-token
     tokenKey: HF_TOKEN
-  shmSizeLimit: 2Gi
+  shmSizeLimit: 8Gi
   resources:
     requests:
       cpu: "16"
@@ -39,12 +47,12 @@ structured:
       nvidia.com/gpu: "4"
     limits:
       cpu: "32"
-      memory: 160Gi
+      memory: 128Gi
       nvidia.com/gpu: "4"
   probes:
     startup:
       periodSeconds: 10
-      failureThreshold: 180
+      failureThreshold: 240
     readiness:
       periodSeconds: 10
       failureThreshold: 3
@@ -76,16 +84,16 @@ orchestrator:
     tag: 20260422-openai-streaming
     pullPolicy: IfNotPresent
   addr: :8080
-  modelType: gpt_oss
+  modelType: gemma4
   pass1:
     provider: ""
     baseURL: ""
     model: ""
     apiKey: ""
   pass2:
-    provider: openai_chat_completions
-    baseURL: http://underpass-llm-gpt-oss-120b-structured.underpass-runtime.svc.cluster.local:8000/v1
-    model: openai/gpt-oss-120b
+    provider: vllm_chat_completions
+    baseURL: http://underpass-llm-gemma-4-26b-a4b-structured.underpass-runtime.svc.cluster.local:8000/v1
+    model: google/gemma-4-26B-A4B-it
     apiKey: EMPTY
   config:
     maxIntermediateBytes: 65536
@@ -97,7 +105,7 @@ orchestrator:
     pass1SystemPrompt: ""
     pass2SystemPrompt: ""
     singlePassSystemPrompt: |-
-      You are a strict JSON extraction engine running on GPT-OSS. Follow the developer instructions exactly. Return only valid JSON that matches the provided schema. Do not add fields. Do not invent values. If a value is missing from the input, omit it only if the schema allows it; otherwise use null when permitted. Keep any internal reasoning out of the final JSON.
+      You are a strict JSON extraction engine running on Gemma 4. Think if helpful, but keep reasoning out of the final answer. Return only valid JSON matching the target schema. Do not add fields. Do not invent values. Use only facts explicitly present in the input.
     pass1UserPromptTemplate: ""
     pass2UserPromptTemplate: ""
     singlePassUserPromptTemplate: |-
@@ -128,15 +136,15 @@ orchestrator:
     pass2PresencePenalty: "0"
     pass2RepetitionPenalty: ""
     pass1MaxTokens: 0
-    pass2MaxTokens: 16384
+    pass2MaxTokens: 4096
     pass1ThinkingTokenBudget: 0
     pass2ThinkingTokenBudget: 0
     pass1ReasoningEffort: ""
-    pass2ReasoningEffort: high
+    pass2ReasoningEffort: ""
     pass1PreserveThinking: ""
     pass2PreserveThinking: ""
     pass1Timeout: ""
-    pass2Timeout: 900s
+    pass2Timeout: 90s
   resources:
     requests:
       cpu: 100m

@@ -4,7 +4,7 @@ Configuracion y notas operativas para desplegar `Jackrong/Qwopus3.5-27B-v3` en `
 
 Archivo:
 
-- [env/prod/qwen3.5-27b.yaml](../env/prod/qwen3.5-27b.yaml)
+- [env/archive/qwen3.5-27b.yaml](../../env/archive/qwen3.5-27b.yaml)
 
 ## Perfil elegido
 

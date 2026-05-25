@@ -55,7 +55,7 @@ Si el objetivo es aprovechar `4x3090`, las variantes que de verdad interesan son
 Documentacion y values:
 
 - [docs/gemma-4-26b-a4b.md](gemma-4-26b-a4b.md)
-- [env/prod/gemma-4-26b-a4b.yaml](../env/prod/gemma-4-26b-a4b.yaml)
+- [env/lab/gemma-4-26b-a4b.yaml](../env/lab/gemma-4-26b-a4b.yaml)
 
 Estado:
 
