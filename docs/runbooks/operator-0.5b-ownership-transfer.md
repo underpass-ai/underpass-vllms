@@ -27,6 +27,8 @@ The transfer is therefore an operational ingress ownership change:
 - Adapter installed at canonical location:
   `/var/lib/operator-adapters/v8.1.2-sft-v2-canonical/`.
 - Branch with the operator deployment values merged to `main`.
+- The `underpass-runtime` chart version deployed during the transfer supports
+  `vllm.ingress.hosts` and keeps `vllm.ingress.host` as a fallback.
 - `env/prod/operator-qwen05-v812.yaml` renders an ingress for
   `0.5b.llm.underpassai.com`.
 - `env/prod/gemma-4-31b.yaml` does not render that host.
@@ -73,16 +75,20 @@ other to minimize the host-unclaimed window.
 
 ### Step 1: Legacy ingress releases the host
 
-Remove only `0.5b.llm.underpassai.com` from the live legacy ingress
-`underpass-runtime-vllm`. Prefer updating the Helm values for the release that
-owns that ingress if available. If the legacy release cannot be updated
-immediately, use a temporary kubectl edit during the transfer window:
+Update the `underpass-runtime` Helm release so the live legacy ingress
+`underpass-runtime-vllm` keeps only the hosts it should continue owning:
 
 ```bash
-kubectl -n underpass-runtime edit ingress underpass-runtime-vllm
+cd /home/tirso/ai/developents/underpass-runtime
+
+helm upgrade --install underpass-runtime charts/underpass-runtime \
+  --namespace underpass-runtime \
+  --reuse-values \
+  --set 'vllm.ingress.hosts[0]=llm.underpassai.com' \
+  --set 'vllm.ingress.hosts[1]=vllm.underpassai.com'
 ```
 
-Remove `0.5b.llm.underpassai.com` from:
+This removes `0.5b.llm.underpassai.com` from:
 
 - `spec.rules[]`
 - `spec.tls[].hosts[]`
@@ -139,12 +145,20 @@ If Step 3 fails, restore the previous live routing:
 
 ```bash
 helm uninstall underpass-llm-operator-qwen05 --namespace underpass-runtime
-kubectl -n underpass-runtime edit ingress underpass-runtime-vllm
+
+cd /home/tirso/ai/developents/underpass-runtime
+
+helm upgrade --install underpass-runtime charts/underpass-runtime \
+  --namespace underpass-runtime \
+  --reuse-values \
+  --set 'vllm.ingress.hosts[0]=llm.underpassai.com' \
+  --set 'vllm.ingress.hosts[1]=vllm.underpassai.com' \
+  --set 'vllm.ingress.hosts[2]=0.5b.llm.underpassai.com'
 ```
 
-Re-add `0.5b.llm.underpassai.com` to:
+This re-adds `0.5b.llm.underpassai.com` to:
 
-- `spec.rules[]`, pointing to `underpass-llm-gemma-4-31b-structured:8000`
+- `spec.rules[]`, pointing to the existing vLLM backend service
 - `spec.tls[].hosts[]`
 
 Verify:
