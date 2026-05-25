@@ -13,6 +13,9 @@ Los perfiles hoy soportados en el orquestador son:
 - `gpt_oss` -> `single_pass`
 - `gemma4` -> `single_pass`
 
+El endpoint `operator_qwen05` no usa el orquestador: es un vLLM directo con
+LoRA para el runtime del operator.
+
 ## Qué hay en el repo
 
 - [charts/vllm](charts/vllm): chart Helm unico para desplegar `reasoning`, `structured` y `orchestrator`.
@@ -37,8 +40,9 @@ Los perfiles hoy soportados en el orquestador son:
 8. [docs/gemma-4-31b.md](docs/gemma-4-31b.md)
 9. [docs/gpt-oss-120b.md](docs/gpt-oss-120b.md)
 10. [docs/gpt-oss-20b.md](docs/gpt-oss-20b.md)
-11. [docs/qwen-thinking-integration-plan.md](docs/qwen-thinking-integration-plan.md)
-12. [docs/qwen-thinking-execution-checklist.md](docs/qwen-thinking-execution-checklist.md)
+11. [docs/operator-0.5b.md](docs/operator-0.5b.md)
+12. [docs/qwen-thinking-integration-plan.md](docs/qwen-thinking-integration-plan.md)
+13. [docs/qwen-thinking-execution-checklist.md](docs/qwen-thinking-execution-checklist.md)
 
 ## Convencion de despliegue
 
@@ -61,6 +65,12 @@ make helm-upgrade-orchestrator NAMESPACE=<namespace> VALUES=<values-file>
 ```
 
 Para el segundo caso, usa `helm upgrade --install <release> charts/vllm -f <values-file>` con `reasoning.enabled=false`.
+
+Para el operator 0.5B, usa el target dedicado:
+
+```bash
+make helm-upgrade-operator NAMESPACE=underpass-runtime
+```
 
 No uses `charts/vllm/values.yaml` como values de entorno. Ese archivo es la base del chart, no una configuracion de despliegue cerrada.
 
@@ -101,6 +111,7 @@ La diferencia entre `reasoning` y `structured` no la adivina el chart. Debes dec
 - `default rapido`: [docs/gemma-4-26b-a4b.md](docs/gemma-4-26b-a4b.md)
 - `default premium`: [docs/gpt-oss-120b.md](docs/gpt-oss-120b.md)
 - `comparador Gemma mas grande`: [docs/gemma-4-31b.md](docs/gemma-4-31b.md)
+- `operator runtime`: [docs/operator-0.5b.md](docs/operator-0.5b.md)
 - `two_pass` de referencia para Qwen: [docs/qwen-thinking-integration-plan.md](docs/qwen-thinking-integration-plan.md)
 
 ## Validacion rapida

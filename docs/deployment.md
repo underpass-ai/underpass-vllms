@@ -12,6 +12,7 @@ El chart es unico, pero la operacion real del proyecto admite dos patrones:
 
 - `two_pass` por componente: tres releases separadas
 - `single_pass` por perfil de modelo: una release con `structured + orchestrator`
+- `structured_only` para operator: una release vLLM directa sin `orchestrator`
 
 ## Requisitos mínimos
 
@@ -53,6 +54,20 @@ En este patron:
 - `orchestrator.enabled=true`
 - `orchestrator.modelType` decide el adapter (`gemma4` o `gpt_oss`)
 
+### Patron `structured_only`
+
+Usa una unica release vLLM sin orquestador. El caso actual es:
+
+- `underpass-llm-operator-qwen05`
+
+En este patron:
+
+- `reasoning.enabled=false`
+- `structured.enabled=true`
+- `orchestrator.enabled=false`
+- `structured.lora.enabled=true`
+- el consumidor envia guided JSON directamente al endpoint OpenAI-compatible de vLLM
+
 ## Nombres de recursos
 
 ### Patron `two_pass`
@@ -78,6 +93,9 @@ Ejemplo real:
   - Deployment/Service `structured`: `underpass-llm-gemma-4-31b-structured`
   - Deployment/Service `orchestrator`: `underpass-llm-gemma-4-31b-orchestrator`
   - PVC de cache si lo crea el chart: `underpass-llm-gemma-4-31b-hf-cache`
+- release `underpass-llm-operator-qwen05`:
+  - Deployment/Service `structured`: `underpass-llm-operator-qwen05-structured`
+  - PVC de cache si lo crea el chart: `underpass-llm-operator-qwen05-hf-cache`
 
 ## Workflow exacto
 
@@ -133,6 +151,12 @@ Para una release `single_pass`, usa:
 helm upgrade --install underpass-llm-gemma-4-31b charts/vllm \
   -n underpass-runtime \
   -f env/prod/gemma-4-31b.yaml
+```
+
+Para el operator:
+
+```bash
+make helm-upgrade-operator NAMESPACE=underpass-runtime
 ```
 
 ### 6. Desinstalar
@@ -304,4 +328,5 @@ Antes de usarlo en un entorno real, ajusta `TWO_PASS_SERVER_URL` al `Service` o 
 
 - perfil `two_pass` de referencia: `env/components/reasoning.yaml`, `env/components/structured.yaml`, `env/components/orchestrator.yaml`
 - perfil `single_pass` activo de production: `env/prod/gemma-4-31b.yaml`
+- perfil `structured_only` para operator runtime: `env/prod/operator-qwen05-v812.yaml`
 - contrato HTTP actual: [docs/api.md](api.md)

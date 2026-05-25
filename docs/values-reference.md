@@ -156,6 +156,38 @@ reasoning:
 - `structured.resources`
 - `structured.probes.*`
 - `structured.service.*`
+- `structured.lora.*`
+- `structured.adapterVolume.*`
+
+### LoRA serving
+
+`reasoning` y `structured` pueden servir adapters LoRA mediante vLLM. Los
+campos son opcionales y por defecto están desactivados:
+
+```yaml
+structured:
+  lora:
+    enabled: true
+    maxRank: 16
+    adapters:
+      - name: operator-v8.1.2
+        path: /adapters/operator-v8.1.2-sft-v2
+  adapterVolume:
+    enabled: true
+    mountPath: /adapters/operator-v8.1.2-sft-v2
+    hostPath: /var/lib/operator-adapters/v8.1.2-sft-v2-canonical
+    hostPathType: Directory
+```
+
+When enabled, the chart adds:
+
+- `--enable-lora`
+- `--max-lora-rank=<maxRank>`
+- `--lora-modules <name>=<path>`
+- a read-only hostPath mount for the adapter directory
+
+Use this only for adapter directories that already exist on the node. The chart
+does not download or verify adapter artifacts.
 
 ### Flags mínimas recomendadas para el rol `structured`
 

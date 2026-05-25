@@ -44,6 +44,15 @@ reasoning:
   maxNumSeqs: 0
   gpuMemoryUtilization: 0
   enforceEager: false
+  lora:
+    enabled: false
+    maxRank: 16
+    adapters: []
+  adapterVolume:
+    enabled: false
+    mountPath: /adapters
+    hostPath: ""
+    hostPathType: Directory
   extraArgs: []
   env:
     HF_HOME: /tmp/hf-cache
@@ -100,6 +109,15 @@ structured:
   maxNumSeqs: 0
   gpuMemoryUtilization: 0
   enforceEager: false
+  lora:
+    enabled: false
+    maxRank: 16
+    adapters: []
+  adapterVolume:
+    enabled: false
+    mountPath: /adapters
+    hostPath: ""
+    hostPathType: Directory
   extraArgs: []
   env:
     HF_HOME: /tmp/hf-cache

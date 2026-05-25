@@ -7,6 +7,11 @@ Profiles for models currently deployed in production clusters.
 - `gemma-4-31b.yaml` - primary structured-output model. Helm release:
   `underpass-llm-gemma-4-31b` in namespace `underpass-runtime`.
 
+## Rollout ready
+
+- `operator-qwen05-v812.yaml` - Operator runtime model, Qwen 2.5 0.5B plus
+  LoRA v8.1.2. Helm release: `underpass-llm-operator-qwen05`.
+
 ## Adding a new production profile
 
 A profile graduates here when:
