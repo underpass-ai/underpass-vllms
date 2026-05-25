@@ -17,8 +17,13 @@ Los perfiles hoy soportados en el orquestador son:
 
 - [charts/vllm](charts/vllm): chart Helm unico para desplegar `reasoning`, `structured` y `orchestrator`.
 - [cmd/two-pass-server](cmd/two-pass-server): binario principal del orquestador.
+- [env/prod/](env/prod/): profiles de production activos.
+- [env/lab/](env/lab/): profiles de referencia, no en production.
+- [env/components/](env/components/): profiles parciales de `two_pass`.
+- [env/archive/](env/archive/): profiles archivados, no en uso.
+- [docs/archive/](docs/archive/): documentacion archivada, no en uso.
 - [deploy/kubernetes/e2e-job.yaml](deploy/kubernetes/e2e-job.yaml): job e2e contra el orquestador.
-- [Makefile](Makefile): entrada operativa para desplegar cada servicio por separado.
+- [Makefile](Makefile): entrada operativa para desplegar cada servicio.
 
 ## Orden de lectura
 
@@ -30,11 +35,10 @@ Los perfiles hoy soportados en el orquestador son:
 6. [docs/gemma-4-family.md](docs/gemma-4-family.md)
 7. [docs/gemma-4-26b-a4b.md](docs/gemma-4-26b-a4b.md)
 8. [docs/gemma-4-31b.md](docs/gemma-4-31b.md)
-9. [docs/qwopus3.5-27b.md](docs/qwopus3.5-27b.md)
-10. [docs/gpt-oss-120b.md](docs/gpt-oss-120b.md)
-11. [docs/gpt-oss-20b.md](docs/gpt-oss-20b.md)
-12. [docs/qwen-thinking-integration-plan.md](docs/qwen-thinking-integration-plan.md)
-13. [docs/qwen-thinking-execution-checklist.md](docs/qwen-thinking-execution-checklist.md)
+9. [docs/gpt-oss-120b.md](docs/gpt-oss-120b.md)
+10. [docs/gpt-oss-20b.md](docs/gpt-oss-20b.md)
+11. [docs/qwen-thinking-integration-plan.md](docs/qwen-thinking-integration-plan.md)
+12. [docs/qwen-thinking-execution-checklist.md](docs/qwen-thinking-execution-checklist.md)
 
 ## Convencion de despliegue
 
@@ -97,7 +101,7 @@ La diferencia entre `reasoning` y `structured` no la adivina el chart. Debes dec
 - `default rapido`: [docs/gemma-4-26b-a4b.md](docs/gemma-4-26b-a4b.md)
 - `default premium`: [docs/gpt-oss-120b.md](docs/gpt-oss-120b.md)
 - `comparador Gemma mas grande`: [docs/gemma-4-31b.md](docs/gemma-4-31b.md)
-- `two_pass` de referencia para Qwen/Qwopus: [docs/qwen-thinking-integration-plan.md](docs/qwen-thinking-integration-plan.md), [docs/qwopus3.5-27b.md](docs/qwopus3.5-27b.md)
+- `two_pass` de referencia para Qwen: [docs/qwen-thinking-integration-plan.md](docs/qwen-thinking-integration-plan.md)
 
 ## Validacion rapida
 
