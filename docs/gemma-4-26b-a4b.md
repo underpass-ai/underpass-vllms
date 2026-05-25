@@ -4,7 +4,7 @@ Configuracion y notas operativas para desplegar `google/gemma-4-26B-A4B-it` en `
 
 Archivo:
 
-- [env/prod/gemma-4-26b-a4b.yaml](../env/prod/gemma-4-26b-a4b.yaml)
+- [env/lab/gemma-4-26b-a4b.yaml](../env/lab/gemma-4-26b-a4b.yaml)
 
 ## Perfil elegido
 
@@ -68,7 +68,7 @@ La forma valida fue:
 
 Se dejo asi en:
 
-- [env/prod/gemma-4-26b-a4b.yaml](../env/prod/gemma-4-26b-a4b.yaml)
+- [env/lab/gemma-4-26b-a4b.yaml](../env/lab/gemma-4-26b-a4b.yaml)
 - [env/prod/gemma-4-31b.yaml](../env/prod/gemma-4-31b.yaml)
 
 ## Validacion real

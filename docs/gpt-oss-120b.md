@@ -4,7 +4,7 @@ Configuracion preparada para desplegar `gpt-oss-120b` en una release separada, p
 
 Archivo:
 
-- [env/prod/gpt-oss-120b.yaml](/home/tirso/ai/developents/underpass-vllms/env/prod/gpt-oss-120b.yaml)
+- [env/lab/gpt-oss-120b.yaml](/home/tirso/ai/developents/underpass-vllms/env/lab/gpt-oss-120b.yaml)
 
 Suposiciones:
 
@@ -37,7 +37,7 @@ Release sugerida:
 ```bash
 helm upgrade --install underpass-llm-gpt-oss-120b charts/vllm \
   -n underpass-runtime \
-  -f env/prod/gpt-oss-120b.yaml
+  -f env/lab/gpt-oss-120b.yaml
 ```
 
 El `baseURL` del orquestador en ese values file asume exactamente esa release name:

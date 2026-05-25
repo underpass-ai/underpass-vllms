@@ -102,15 +102,15 @@ Referencias:
 ### 3. Validar el values file
 
 ```bash
-make helm-lint-values VALUES=env/prod/reasoning.yaml
+make helm-lint-values VALUES=env/components/reasoning.yaml
 ```
 
 ### 4. Renderizar antes de instalar
 
 ```bash
-make helm-template-reasoning NAMESPACE=underpass-runtime VALUES=env/prod/reasoning.yaml
-make helm-template-structured NAMESPACE=underpass-runtime VALUES=env/prod/structured.yaml
-make helm-template-orchestrator NAMESPACE=underpass-runtime VALUES=env/prod/orchestrator.yaml
+make helm-template-reasoning NAMESPACE=underpass-runtime VALUES=env/components/reasoning.yaml
+make helm-template-structured NAMESPACE=underpass-runtime VALUES=env/components/structured.yaml
+make helm-template-orchestrator NAMESPACE=underpass-runtime VALUES=env/components/orchestrator.yaml
 ```
 
 Para una release `single_pass`, usa `helm template` directamente sobre el values file del perfil:
@@ -122,9 +122,9 @@ helm template underpass-llm-gemma-4-31b charts/vllm -n underpass-runtime -f env/
 ### 5. Instalar o actualizar
 
 ```bash
-make helm-upgrade-reasoning NAMESPACE=underpass-runtime VALUES=env/prod/reasoning.yaml
-make helm-upgrade-structured NAMESPACE=underpass-runtime VALUES=env/prod/structured.yaml
-make helm-upgrade-orchestrator NAMESPACE=underpass-runtime VALUES=env/prod/orchestrator.yaml
+make helm-upgrade-reasoning NAMESPACE=underpass-runtime VALUES=env/components/reasoning.yaml
+make helm-upgrade-structured NAMESPACE=underpass-runtime VALUES=env/components/structured.yaml
+make helm-upgrade-orchestrator NAMESPACE=underpass-runtime VALUES=env/components/orchestrator.yaml
 ```
 
 Para una release `single_pass`, usa:
@@ -302,6 +302,6 @@ Antes de usarlo en un entorno real, ajusta `TWO_PASS_SERVER_URL` al `Service` o 
 
 ## Estado documentado hoy
 
-- perfil `two_pass` de referencia: `env/prod/reasoning.yaml`, `env/prod/structured.yaml`, `env/prod/orchestrator.yaml`
-- perfil `single_pass` activo de laboratorio: `env/prod/gemma-4-31b.yaml`
+- perfil `two_pass` de referencia: `env/components/reasoning.yaml`, `env/components/structured.yaml`, `env/components/orchestrator.yaml`
+- perfil `single_pass` activo de production: `env/prod/gemma-4-31b.yaml`
 - contrato HTTP actual: [docs/api.md](api.md)
