@@ -49,6 +49,18 @@ spec:
             {{- if $cfg.enforceEager }}
             - "--enforce-eager"
             {{- end }}
+            {{- if $cfg.lora.enabled }}
+            - "--enable-lora"
+            - "--max-lora-rank={{ required (printf "%s.lora.maxRank is required when %s.lora.enabled=true" $component $component) $cfg.lora.maxRank }}"
+            {{- if $cfg.lora.adapters }}
+            - "--lora-modules"
+            {{- range $adapter := $cfg.lora.adapters }}
+            - "{{ required (printf "%s.lora.adapters[].name is required when %s.lora.enabled=true" $component $component) $adapter.name }}={{ required (printf "%s.lora.adapters[].path is required when %s.lora.enabled=true" $component $component) $adapter.path }}"
+            {{- end }}
+            {{- else }}
+            {{- fail (printf "%s.lora.adapters must include at least one adapter when %s.lora.enabled=true" $component $component) }}
+            {{- end }}
+            {{- end }}
             {{- range $cfg.extraArgs }}
             - {{ . | quote }}
             {{- end }}
@@ -90,6 +102,11 @@ spec:
               mountPath: {{ $root.Values.cache.mountPath }}
             - name: shm
               mountPath: /dev/shm
+            {{- if $cfg.adapterVolume.enabled }}
+            - name: adapter
+              mountPath: {{ required (printf "%s.adapterVolume.mountPath is required when %s.adapterVolume.enabled=true" $component $component) $cfg.adapterVolume.mountPath }}
+              readOnly: true
+            {{- end }}
       volumes:
         - name: hf-cache
           {{- if $root.Values.cache.enabled }}
@@ -103,5 +120,11 @@ spec:
           emptyDir:
             medium: Memory
             sizeLimit: {{ $cfg.shmSizeLimit }}
+        {{- if $cfg.adapterVolume.enabled }}
+        - name: adapter
+          hostPath:
+            path: {{ required (printf "%s.adapterVolume.hostPath is required when %s.adapterVolume.enabled=true" $component $component) $cfg.adapterVolume.hostPath | quote }}
+            type: {{ default "Directory" $cfg.adapterVolume.hostPathType | quote }}
+        {{- end }}
 {{- end }}
 {{- end }}

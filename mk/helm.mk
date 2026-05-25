@@ -8,6 +8,7 @@ EXTRA_ARGS ?=
 REASONING_RELEASE ?= underpass-llm-reasoning
 STRUCTURED_RELEASE ?= underpass-llm-structured
 ORCHESTRATOR_RELEASE ?= underpass-llm-orchestrator
+OPERATOR_RELEASE ?= underpass-llm-operator-qwen05
 
 define require_var
 	@if [ -z "$($(1))" ]; then \
@@ -26,7 +27,10 @@ endef
 	helm-uninstall-structured \
 	helm-template-orchestrator \
 	helm-upgrade-orchestrator \
-	helm-uninstall-orchestrator
+	helm-uninstall-orchestrator \
+	helm-template-operator \
+	helm-upgrade-operator \
+	helm-uninstall-operator
 
 help: ## Show available targets
 	@awk 'BEGIN {FS = ":.*## "}; /^[a-zA-Z0-9_.-]+:.*## / {printf "%-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -115,3 +119,22 @@ helm-upgrade-orchestrator: ## Install or upgrade only the orchestrator service
 helm-uninstall-orchestrator: ## Uninstall the orchestrator release
 	$(call require_var,NAMESPACE)
 	$(HELM) uninstall $(ORCHESTRATOR_RELEASE) -n $(NAMESPACE)
+
+helm-template-operator: ## Render the Operator Qwen 0.5B LoRA service
+	$(call require_var,NAMESPACE)
+	$(HELM) template $(OPERATOR_RELEASE) $(CHART) \
+		-n $(NAMESPACE) \
+		-f env/prod/operator-qwen05-v812.yaml \
+		$(EXTRA_ARGS)
+
+helm-upgrade-operator: ## Deploy Operator Qwen 0.5B LoRA service
+	$(call require_var,NAMESPACE)
+	$(HELM) upgrade --install $(OPERATOR_RELEASE) $(CHART) \
+		-n $(NAMESPACE) \
+		--create-namespace \
+		-f env/prod/operator-qwen05-v812.yaml \
+		$(EXTRA_ARGS)
+
+helm-uninstall-operator: ## Uninstall Operator Qwen 0.5B LoRA service
+	$(call require_var,NAMESPACE)
+	$(HELM) uninstall $(OPERATOR_RELEASE) -n $(NAMESPACE)
