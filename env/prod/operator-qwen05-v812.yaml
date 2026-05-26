@@ -47,8 +47,6 @@ structured:
     mountPath: /adapters/operator-v8.1.2-sft-v2
     hostPath: /var/lib/operator-adapters/v8.1.2-sft-v2-canonical
     hostPathType: Directory
-  extraArgs:
-    - --guided-decoding-backend=xgrammar
   env:
     HF_HOME: /tmp/hf-cache
     LD_LIBRARY_PATH: /usr/lib
